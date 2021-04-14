@@ -5,6 +5,11 @@ import tkFileDialog
 import pickle
 import ttk
 import tkFont
+import tkMessageBox
+from TUAShield import Shield
+from TUAArmour import Armour
+from TUAMiscellaneousItem import MiscellaneousItem
+from TUAWeapon import Weapon
 
 def setChildren(children, enabled):
     for child in children:
@@ -21,7 +26,7 @@ class EditorEntry(Entry):
         if 'onTextChanged' in kwargs:
             onTextChanged = kwargs.pop('onTextChanged')
             self.v.trace("w", lambda *args: onTextChanged(self))
-        Entry.__init__(self, *args, **kwargs)
+        Entry.__init__(self, *args, validatecommand=None, **kwargs)
         self.config(textvariable=self.v)
 
     def replace(self, text):
@@ -38,7 +43,7 @@ class EditorDropdown(OptionMenu):
 
     def replace(self, selection):
         self.v.set(selection)
-        
+
     def get(self):
         return self.v.get()
 
@@ -146,13 +151,13 @@ class ItemWindow:
         infoFrame = Frame(itemFrame, bg=COLOURS['DEFAULT_BG'])
         infoFrame.grid(row=0, column=2, sticky='nsew')
         # Image
-        self.imageName = "blank"
+        self.imageName = None
         self.image = Button(
                 infoFrame,
                 image=IMAGES['DEFAULT'],
                 width=64,
                 height=64,
-                bg=COLOURS['BLACK'],
+                bg=COLOURS['LINK'],
                 bd=4,
                 command=self.chooseImage
         )
@@ -277,8 +282,17 @@ class ItemWindow:
         self.imbuement = EditorDropdown(infoFrame, *elements, command=self.onSelectionChanged)
         self.imbuement.config(bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], activebackground=COLOURS['DEFAULT_FG'], activeforeground=COLOURS['DEFAULT_BG'])
         self.imbuement['menu'].config(bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
-        self.imbuement.grid(row=4, column=0, columnspan=2)
+        self.imbuement.grid(row=4, column=0, columnspan=2, sticky='W')
         self.imbuement.grid_remove()
+        # Crit damage
+        damageFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
+        damageFrame.grid(row=4, column=1, sticky='E')
+        self.damageFrame = damageFrame
+        self.damageFrame.grid_remove()
+        damageLabel = Label(damageFrame, text="Crit Dmg %", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        damageLabel.pack(side=LEFT)
+        self.damage = EditorEntry(damageFrame, width=3, onTextChanged=self.onTextChanged)
+        self.damage.pack(side=LEFT)
 
         self.save = Button(infoFrame, text="Save", width=10, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
         self.save.grid(row=5, columnspan=2, pady=8)
@@ -292,10 +306,10 @@ class ItemWindow:
         if selected == None:
             self.category.replace(self.category.get())
         else:
-            self.imageName = selected.IMAGE_NAME
-            self.image.config(image=IMAGES[self.imageName])
             self.name.replace(selected.NAME)
             self.category.replace(selected.CATEGORY)
+            self.imageName = selected.IMAGE_NAME
+            self.image.config(image=IMAGES[self.imageName])
             self.price.replace(selected.PRICE)
 
             if selected.CATEGORY == "Shield":
@@ -323,6 +337,7 @@ class ItemWindow:
                 self.power.replace(selected.POWER)
                 self.crit.replace(selected.C_RATE)
                 self.imbuement.replace(selected.ELEMENT)
+                self.damage.replace(selected.C_DAMAGE)
 
             self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], state=DISABLED)
 
@@ -363,6 +378,8 @@ class ItemWindow:
         self.save.config(text="Save item", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
 
     def onCategoryChanged(self, value):
+        self.image.config(image=IMAGES['DEFAULT'])
+        self.imageName = None
         if value == "Shield":
             self.requirementFrame.grid()
             self.reqType.replace("Strength")
@@ -374,6 +391,7 @@ class ItemWindow:
             self.critFrame.grid_remove()
             self.resFrame.grid()
             self.imbuement.grid_remove()
+            self.damageFrame.grid_remove()
 
         elif value == "Armour":
             self.requirementFrame.grid()
@@ -386,6 +404,7 @@ class ItemWindow:
             self.critFrame.grid_remove()
             self.resFrame.grid()
             self.imbuement.grid_remove()
+            self.damageFrame.grid_remove()
 
         elif value == "Miscellaneous":
             self.requirementFrame.grid_remove()
@@ -396,6 +415,7 @@ class ItemWindow:
             self.critFrame.grid_remove()
             self.resFrame.grid_remove()
             self.imbuement.grid_remove()
+            self.damageFrame.grid_remove()
 
         else:
             self.requirementFrame.grid()
@@ -407,59 +427,81 @@ class ItemWindow:
             self.critFrame.grid()
             self.resFrame.grid_remove()
             self.imbuement.grid()
+            self.damageFrame.grid()
 
         self.onSelectionChanged(value)
 
-    def saveItem(self, item):
+    def saveItem(self, index):
+        def showError(customMessage=None):
+            errorTitle = "Item error"
+            errorMessage = "Please enter a value for all item stats." if not customMessage else customMessage
+            tkMessageBox.showerror(title=errorTitle, message=errorMessage)
+
         category = self.category.get()
-        errorMessage = "Please complete all fields."
-        if "" in (category, self.price.get()):
-            print errorMessage
-            return
-        item.IMAGE_NAME = self.imageName
-        item.NAME = self.name.get()
-        item.PRICE = int(self.price.get())
-        item.CATEGORY = category
+        if self.imageName is None:
+            return showError("Please select an item image.")
+        elif "" in (category, self.price.get()):
+            return showError()
+
         if category == "Shield":
             if "" in (self.reqVal.get(), self.defence.get(), self.block.get(), self.resType.get(), self.resVal.get()):
-                print errorMessage
-                return
-            item.REQUIREMENT_VALUE = int(self.reqVal.get())
-            item.DEFENCE = int(self.defence.get())
-            item.B_RATE = int(self.block.get())
-            item.ELEMENT = self.resType.get()
-            item.REDUCTION = int(self.resVal.get())
+                return showError()
+            self.items[index] = Shield(
+                self.name.get(),
+                int(self.price.get()),
+                self.resType.get(),
+                int(self.reqVal.get()),
+                int(self.defence.get()),
+                int(self.resVal.get()),
+                int(self.block.get()),
+            )
         elif category == "Armour":
             if "" in (self.reqVal.get(), self.defence.get(), self.resType.get(), self.resVal.get()):
-                print errorMessage
-                return
-            item.REQUIREMENT_VALUE = int(self.reqVal.get())
-            item.DEFENCE = int(self.defence.get())
-            item.ELEMENT = self.resType.get()
-            item.REDUCTION = int(self.resVal.get())
+                return showError()
+            self.items[index] = Armour(
+                self.name.get(),
+                int(self.price.get()),
+                self.resType.get(),
+                int(self.reqVal.get()),
+                int(self.defence.get()),
+                int(self.resVal.get()),
+            )
         elif category == "Miscellaneous":
-            item.INFORMATION = self.description.get(1.0, END).strip().replace("\n", "*")
+            self.items[index] = MiscellaneousItem(
+                self.name.get(),
+                int(self.price.get()),
+                self.description.get(1.0, END).strip().replace("\n", "*"),
+            )
         else:
-            if "" in (self.reqVal.get(), self.reqType.get(), self.power.get(), self.crit.get(), self.imbuement.get()):
-                print errorMessage
-                return
-            item.REQUIREMENT_VALUE = int(self.reqVal.get())
-            item.REQUIREMENT_TYPE = self.reqType.get()
-            item.POWER = int(self.power.get())
-            item.C_RATE = float(self.crit.get())
-            item.ELEMENT = self.imbuement.get()
+            if "" in (self.reqVal.get(), self.reqType.get(), self.power.get(), self.crit.get(), self.imbuement.get(), self.damage.get()):
+                return showError()
+            self.items[index] = Weapon(
+                self.name.get(),
+                int(self.price.get()),
+                self.imbuement.get(),
+                int(self.reqVal.get()),
+                int(self.power.get()),
+                self.reqType.get(),
+                category,
+                float(self.crit.get()),
+                int(self.damage.get()),
+            )
+        self.items[index].IMAGE_NAME = self.imageName
+        return "Success"
 
     def saveData(self):
-        def dumpStats(character):
+        def dumpItems(character):
             character.items = self.items
 
-        self.saveItem(self.items[self.itemVar.get()])
+        if not self.saveItem(self.itemVar.get()):
+            return
         with open(self.path, "r") as gameFile:
             character = pickle.load(gameFile)
-        dumpStats(character)
+        dumpItems(character)
         with open(self.path, "w") as gameFile:
             pickle.dump(character, gameFile)
         print "Saved items."
+        self.updateWidgets(character)
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], state=DISABLED)
 
 class MainWindow:
@@ -536,8 +578,9 @@ def init():
         "DEFAULT_BG" : "#24828b",
         "DEFAULT_FG" : "#f4ead2",
         "BLACK" : "#000000",
+        "LINK" : "#0000ff",
     }
-    
+
     tkFont.nametofont("TkDefaultFont").configure(size=10)
     tkFont.nametofont("TkTextFont").configure(size=10)
 
