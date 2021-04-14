@@ -4,6 +4,7 @@ from Tkinter import *
 import tkFileDialog
 import pickle
 import ttk
+import tkFont
 
 def setChildren(children, enabled):
     for child in children:
@@ -37,6 +38,9 @@ class EditorDropdown(OptionMenu):
 
     def replace(self, selection):
         self.v.set(selection)
+        
+    def get(self):
+        return self.v.get()
 
 class EditorText(Text):
     def __init__(self, *args, **kwargs):
@@ -76,7 +80,7 @@ class StatWindow:
         self.euros = EditorEntry(statFrame, width=6, onTextChanged=self.onTextChanged)
         self.euros.grid(row=4, column=1, sticky='E')
 
-        self.save = Button(statFrame, text="Save", width=8, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
+        self.save = Button(statFrame, text="Save", width=10, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
         self.save.grid(columnspan=2, pady=8)
 
         self.children = statFrame.winfo_children()
@@ -142,6 +146,7 @@ class ItemWindow:
         infoFrame = Frame(itemFrame, bg=COLOURS['DEFAULT_BG'])
         infoFrame.grid(row=0, column=2, sticky='nsew')
         # Image
+        self.imageName = "blank"
         self.image = Button(
                 infoFrame,
                 image=IMAGES['DEFAULT'],
@@ -170,6 +175,7 @@ class ItemWindow:
         self.category = EditorDropdown(infoFrame, *categories, onSelectionChanged=self.onCategoryChanged)
         self.category.config(bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], activebackground=COLOURS['DEFAULT_FG'], activeforeground=COLOURS['DEFAULT_BG'])
         self.category['menu'].config(bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
+        self.category['menu'].insert_separator(6)
         self.category.grid(row=1, column=1, sticky='W')
         # Price
         priceFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
@@ -180,7 +186,7 @@ class ItemWindow:
         self.price.pack(side=LEFT)
         # Requirement
         requirementFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
-        requirementFrame.grid(row=2, column=1, sticky='W')
+        requirementFrame.grid(row=2, column=1, pady=4, sticky='W')
         self.requirementFrame = requirementFrame
         self.requirementFrame.grid_remove()
         requirementLabel = Label(requirementFrame, text="Requires", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
@@ -207,7 +213,7 @@ class ItemWindow:
         self.description.pack(side=BOTTOM)
         # Defence
         defenceFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
-        defenceFrame.grid(row=3, column=0, sticky='W')
+        defenceFrame.grid(row=3, column=0, pady=4, sticky='W')
         self.defenceFrame = defenceFrame
         self.defenceFrame.grid_remove()
         defenceLabel = Label(defenceFrame, text="Defence", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
@@ -216,7 +222,7 @@ class ItemWindow:
         self.defence.pack(side=LEFT)
         # Power
         powerFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
-        powerFrame.grid(row=3, column=0, sticky='W')
+        powerFrame.grid(row=3, column=0, pady=4, sticky='W')
         self.powerFrame = powerFrame
         self.powerFrame.grid_remove()
         powerLabel = Label(powerFrame, text="Power", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
@@ -274,7 +280,7 @@ class ItemWindow:
         self.imbuement.grid(row=4, column=0, columnspan=2)
         self.imbuement.grid_remove()
 
-        self.save = Button(infoFrame, text="Save", width=8, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
+        self.save = Button(infoFrame, text="Save", width=10, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
         self.save.grid(row=5, columnspan=2, pady=8)
 
         self.children = itemFrame.winfo_children()
@@ -284,9 +290,10 @@ class ItemWindow:
         setChildren(self.children, True)
         selected = self.items[self.itemVar.get()]
         if selected == None:
-            self.category.replace(self.category.v.get())
+            self.category.replace(self.category.get())
         else:
-            self.image.config(image=IMAGES[selected.IMAGE_NAME])
+            self.imageName = selected.IMAGE_NAME
+            self.image.config(image=IMAGES[self.imageName])
             self.name.replace(selected.NAME)
             self.category.replace(selected.CATEGORY)
             self.price.replace(selected.PRICE)
@@ -305,7 +312,7 @@ class ItemWindow:
                 self.resType.replace(selected.ELEMENT)
 
             elif selected.CATEGORY == "Miscellaneous":
-                self.description.replace(selected.INFORMATION)
+                self.description.replace(selected.INFORMATION.replace("*", "\n"))
                 # No easy way to check for Text widget modifications
                 self.save.config(text="Update", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
                 return
@@ -346,7 +353,7 @@ class ItemWindow:
                 if item.IMAGE_NAME not in IMAGES:
                     IMAGES[item.IMAGE_NAME] = PhotoImage(file="images\\"+directories[item.CATEGORY]+"\\"+item.IMAGE_NAME+".gif")
                 self.buttons[i].config(image=IMAGES[item.IMAGE_NAME])
-        self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=DISABLED)
+        self.save.config(text="Select item", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=DISABLED)
 
     def onTextChanged(self, widget):
         widget.replace(widget.v.get()[0:widget['width']])
@@ -404,8 +411,43 @@ class ItemWindow:
         self.onSelectionChanged(value)
 
     def saveItem(self, item):
-        # TODO
-        pass
+        category = self.category.get()
+        errorMessage = "Please complete all fields."
+        if "" in (category, self.price.get()):
+            print errorMessage
+            return
+        item.IMAGE_NAME = self.imageName
+        item.NAME = self.name.get()
+        item.PRICE = int(self.price.get())
+        item.CATEGORY = category
+        if category == "Shield":
+            if "" in (self.reqVal.get(), self.defence.get(), self.block.get(), self.resType.get(), self.resVal.get()):
+                print errorMessage
+                return
+            item.REQUIREMENT_VALUE = int(self.reqVal.get())
+            item.DEFENCE = int(self.defence.get())
+            item.B_RATE = int(self.block.get())
+            item.ELEMENT = self.resType.get()
+            item.REDUCTION = int(self.resVal.get())
+        elif category == "Armour":
+            if "" in (self.reqVal.get(), self.defence.get(), self.resType.get(), self.resVal.get()):
+                print errorMessage
+                return
+            item.REQUIREMENT_VALUE = int(self.reqVal.get())
+            item.DEFENCE = int(self.defence.get())
+            item.ELEMENT = self.resType.get()
+            item.REDUCTION = int(self.resVal.get())
+        elif category == "Miscellaneous":
+            item.INFORMATION = self.description.get(1.0, END).strip().replace("\n", "*")
+        else:
+            if "" in (self.reqVal.get(), self.reqType.get(), self.power.get(), self.crit.get(), self.imbuement.get()):
+                print errorMessage
+                return
+            item.REQUIREMENT_VALUE = int(self.reqVal.get())
+            item.REQUIREMENT_TYPE = self.reqType.get()
+            item.POWER = int(self.power.get())
+            item.C_RATE = float(self.crit.get())
+            item.ELEMENT = self.imbuement.get()
 
     def saveData(self):
         def dumpStats(character):
@@ -417,7 +459,7 @@ class ItemWindow:
         dumpStats(character)
         with open(self.path, "w") as gameFile:
             pickle.dump(character, gameFile)
-        print "Saved items. (TEST: not yet implemented)"
+        print "Saved items."
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], state=DISABLED)
 
 class MainWindow:
@@ -495,6 +537,9 @@ def init():
         "DEFAULT_FG" : "#f4ead2",
         "BLACK" : "#000000",
     }
+    
+    tkFont.nametofont("TkDefaultFont").configure(size=10)
+    tkFont.nametofont("TkTextFont").configure(size=10)
 
 def start():
     root = Tk()
