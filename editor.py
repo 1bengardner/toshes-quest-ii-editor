@@ -3,62 +3,85 @@
 from Tkinter import *
 import tkFileDialog
 import pickle
+import ttk
 
 def setChildren(children, enabled):
     for child in children:
-        if child.winfo_class() in ("Frame", "LabelFrame"):
+        if child.winfo_class() == "TSeparator":
+            continue
+        elif child.winfo_class() in ("Frame", "LabelFrame"):
             setChildren(child.winfo_children(), enabled)
         else:
             child.config(state=(NORMAL if enabled else DISABLED))
 
-class EditorText(Entry):
+class EditorEntry(Entry):
     def __init__(self, *args, **kwargs):
-        onTextChanged = kwargs.pop('onTextChanged')
-        Entry.__init__(self, *args, **kwargs)
         self.v = StringVar()
-        self.v.trace("w", lambda *args: onTextChanged(self))
+        if 'onTextChanged' in kwargs:
+            onTextChanged = kwargs.pop('onTextChanged')
+            self.v.trace("w", lambda *args: onTextChanged(self))
+        Entry.__init__(self, *args, **kwargs)
         self.config(textvariable=self.v)
-        
+
     def replace(self, text):
         self.delete(0, END)
+        self.insert(END, text)
+
+class EditorDropdown(OptionMenu):
+    def __init__(self, *args, **kwargs):
+        self.v = StringVar()
+        if 'onSelectionChanged' in kwargs:
+            onSelectionChanged = kwargs.pop('onSelectionChanged')
+            self.v.trace("w", lambda *args: onSelectionChanged(self.v.get()))
+        OptionMenu.__init__(self, args[0], self.v, *args[1:], **kwargs)
+
+    def replace(self, selection):
+        self.v.set(selection)
+
+class EditorText(Text):
+    def __init__(self, *args, **kwargs):
+        Text.__init__(self, *args, **kwargs)
+
+    def replace(self, text):
+        self.delete(0.0, END)
         self.insert(END, text)
 
 class StatWindow:
     def __init__(self, master):
         statFrame = Frame(master, bg=COLOURS['DEFAULT_BG'])
         statFrame.grid()
-        
+
         levelLabel = Label(statFrame, text="Level", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         levelLabel.grid(row=0, column=0)
-        self.level = EditorText(statFrame, width=2, onTextChanged=self.onTextChanged)
+        self.level = EditorEntry(statFrame, width=2, onTextChanged=self.onTextChanged)
         self.level.grid(row=0, column=1, sticky='E')
-        
+
         strengthLabel = Label(statFrame, text="Strength", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         strengthLabel.grid(row=1, column=0)
-        self.strength = EditorText(statFrame, width=3, onTextChanged=self.onTextChanged)
+        self.strength = EditorEntry(statFrame, width=3, onTextChanged=self.onTextChanged)
         self.strength.grid(row=1, column=1, sticky='E')
-        
+
         dexterityLabel = Label(statFrame, text="Dexterity", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         dexterityLabel.grid(row=2, column=0)
-        self.dexterity = EditorText(statFrame, width=3, onTextChanged=self.onTextChanged)
+        self.dexterity = EditorEntry(statFrame, width=3, onTextChanged=self.onTextChanged)
         self.dexterity.grid(row=2, column=1, sticky='E')
-        
+
         wisdomLabel = Label(statFrame, text="Wisdom", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         wisdomLabel.grid(row=3, column=0)
-        self.wisdom = EditorText(statFrame, width=3, onTextChanged=self.onTextChanged)
+        self.wisdom = EditorEntry(statFrame, width=3, onTextChanged=self.onTextChanged)
         self.wisdom.grid(row=3, column=1, sticky='E')
-        
+
         eurosLabel = Label(statFrame, image=IMAGES['EURO'], bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         eurosLabel.grid(row=4, column=0)
-        self.euros = EditorText(statFrame, width=6, onTextChanged=self.onTextChanged)
+        self.euros = EditorEntry(statFrame, width=6, onTextChanged=self.onTextChanged)
         self.euros.grid(row=4, column=1, sticky='E')
-        
+
         self.save = Button(statFrame, text="Save", width=8, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
         self.save.grid(columnspan=2, pady=8)
-        
+
         self.children = statFrame.winfo_children()
         setChildren(self.children, False)
-        
+
     def updateWidgets(self, character):
         setChildren(self.children, True)
         self.level.replace(character.level)
@@ -67,11 +90,11 @@ class StatWindow:
         self.wisdom.replace(character.wisdom)
         self.euros.replace(character.euros)
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=DISABLED)
-        
+
     def onTextChanged(self, widget):
         widget.replace(widget.v.get()[0:widget['width']])
         self.save.config(text="Save stats", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
-            
+
     def saveData(self):
         def dumpStats(character):
             character.level = int(self.level.get())
@@ -79,7 +102,7 @@ class StatWindow:
             character.dexterity = int(self.dexterity.get())
             character.wisdom = int(self.wisdom.get())
             character.euros = int(self.euros.get())
-            
+
         with open(self.path, "r") as gameFile:
             character = pickle.load(gameFile)
         dumpStats(character)
@@ -92,7 +115,7 @@ class ItemWindow:
     def __init__(self, master):
         itemFrame = Frame(master, bg=COLOURS['DEFAULT_BG'])
         itemFrame.grid()
-        
+
         buttonsFrame = Frame(itemFrame, bg=COLOURS['DEFAULT_BG'])
         buttonsFrame.grid()
         self.itemVar = IntVar()
@@ -109,22 +132,200 @@ class ItemWindow:
                 bg=COLOURS['BLACK'],
                 indicatoron=0,
                 bd=4,
-                command=self.select
+                command=self.selectItem
             )
             rb.grid(row=i//3, column=i%3)
             self.buttons.append(rb)
-        
-        self.save = Button(itemFrame, text="Save", width=8, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
-        self.save.grid(pady=8)
-        
+
+        ttk.Separator(itemFrame, orient=VERTICAL).grid(row=0, column=1, padx=4, sticky='NS')
+
+        infoFrame = Frame(itemFrame, bg=COLOURS['DEFAULT_BG'])
+        infoFrame.grid(row=0, column=2, sticky='nsew')
+        # Image
+        self.image = Button(
+                infoFrame,
+                image=IMAGES['DEFAULT'],
+                width=64,
+                height=64,
+                bg=COLOURS['BLACK'],
+                bd=4,
+                command=self.chooseImage
+        )
+        self.image.grid(row=0, column=0, padx=(0, 4), pady=(0, 4), rowspan=3, sticky='NW')
+        # Name
+        self.name = EditorEntry(infoFrame, width=30, onTextChanged=self.onTextChanged)
+        self.name.grid(row=0, column=1, sticky='W')
+        # Category
+        categories = [
+            "Sword",
+            "Club",
+            "Axe",
+            "Spear",
+            "Bow",
+            "Wand",
+            "Shield",
+            "Armour",
+            "Miscellaneous",
+        ]
+        self.category = EditorDropdown(infoFrame, *categories, onSelectionChanged=self.onCategoryChanged)
+        self.category.config(bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], activebackground=COLOURS['DEFAULT_FG'], activeforeground=COLOURS['DEFAULT_BG'])
+        self.category['menu'].config(bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
+        self.category.grid(row=1, column=1, sticky='W')
+        # Price
+        priceFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
+        priceFrame.grid(row=1, column=1, sticky='E')
+        eurosLabel = Label(priceFrame, image=IMAGES['EURO'], bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        eurosLabel.pack(side=LEFT)
+        self.price = EditorEntry(priceFrame, width=6, onTextChanged=self.onTextChanged)
+        self.price.pack(side=LEFT)
+        # Requirement
+        requirementFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
+        requirementFrame.grid(row=2, column=1, sticky='W')
+        self.requirementFrame = requirementFrame
+        self.requirementFrame.grid_remove()
+        requirementLabel = Label(requirementFrame, text="Requires", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        requirementLabel.pack(side=LEFT)
+        self.reqVal = EditorEntry(requirementFrame, width=3, onTextChanged=self.onTextChanged)
+        self.reqVal.pack(side=LEFT)
+        stats = [
+            "Strength",
+            "Dexterity",
+            "Wisdom",
+        ]
+        self.reqType = EditorDropdown(requirementFrame, *stats, command=self.onSelectionChanged)
+        self.reqType.config(bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], activebackground=COLOURS['DEFAULT_FG'], activeforeground=COLOURS['DEFAULT_BG'])
+        self.reqType['menu'].config(bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
+        self.reqType.pack(side=LEFT)
+        # Description
+        descriptionFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
+        descriptionFrame.grid(row=3, column=0, columnspan=2)
+        self.descriptionFrame = descriptionFrame
+        self.descriptionFrame.grid_remove()
+        descriptionLabel = Label(descriptionFrame, text="Description", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        descriptionLabel.pack(side=TOP)
+        self.description = EditorText(descriptionFrame, font="TkDefaultFont", wrap=NONE, height=2, width=40)
+        self.description.pack(side=BOTTOM)
+        # Defence
+        defenceFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
+        defenceFrame.grid(row=3, column=0, sticky='W')
+        self.defenceFrame = defenceFrame
+        self.defenceFrame.grid_remove()
+        defenceLabel = Label(defenceFrame, text="Defence", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        defenceLabel.pack(side=LEFT)
+        self.defence = EditorEntry(defenceFrame, width=3, onTextChanged=self.onTextChanged)
+        self.defence.pack(side=LEFT)
+        # Power
+        powerFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
+        powerFrame.grid(row=3, column=0, sticky='W')
+        self.powerFrame = powerFrame
+        self.powerFrame.grid_remove()
+        powerLabel = Label(powerFrame, text="Power", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        powerLabel.pack(side=LEFT)
+        self.power = EditorEntry(powerFrame, width=3, onTextChanged=self.onTextChanged)
+        self.power.pack(side=LEFT)
+        # Block chance
+        blockFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
+        blockFrame.grid(row=3, column=1, sticky='E')
+        self.blockFrame = blockFrame
+        self.blockFrame.grid_remove()
+        blockLabel = Label(blockFrame, text="Block %", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        blockLabel.pack(side=LEFT)
+        self.block = EditorEntry(blockFrame, width=3, onTextChanged=self.onTextChanged)
+        self.block.pack(side=LEFT)
+        # Crit chance
+        critFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
+        critFrame.grid(row=3, column=1, sticky='E')
+        self.critFrame = critFrame
+        self.critFrame.grid_remove()
+        critLabel = Label(critFrame, text="Crit %", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        critLabel.pack(side=LEFT)
+        self.crit = EditorEntry(critFrame, width=5, onTextChanged=self.onTextChanged)
+        self.crit.pack(side=LEFT)
+        # Reduction
+        resFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
+        resFrame.grid(row=4, column=0, columnspan=2, sticky='W')
+        self.resFrame = resFrame
+        self.resFrame.grid_remove()
+        resLabel = Label(resFrame, text="Resist %", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        resLabel.pack(side=LEFT)
+        self.resVal = EditorEntry(resFrame, width=3, onTextChanged=self.onTextChanged)
+        self.resVal.pack(side=LEFT)
+        resists = [
+            "Physical",
+            "Earth",
+            "Water",
+            "Fire",
+            "Elemental",
+        ]
+        self.resType = EditorDropdown(resFrame, *resists, command=self.onSelectionChanged)
+        self.resType.config(bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], activebackground=COLOURS['DEFAULT_FG'], activeforeground=COLOURS['DEFAULT_BG'])
+        self.resType['menu'].config(bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
+        self.resType.pack(side=LEFT)
+        # Imbuement
+        elements = [
+            "Physical",
+            "Earth",
+            "Water",
+            "Fire",
+        ]
+        self.imbuement = EditorDropdown(infoFrame, *elements, command=self.onSelectionChanged)
+        self.imbuement.config(bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], activebackground=COLOURS['DEFAULT_FG'], activeforeground=COLOURS['DEFAULT_BG'])
+        self.imbuement['menu'].config(bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
+        self.imbuement.grid(row=4, column=0, columnspan=2)
+        self.imbuement.grid_remove()
+
+        self.save = Button(infoFrame, text="Save", width=8, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
+        self.save.grid(row=5, columnspan=2, pady=8)
+
         self.children = itemFrame.winfo_children()
         setChildren(self.children, False)
-        
-    def select(self):
-        self.items[self.itemVar.get()]
-        
-    def updateWidgets(self, character):
+
+    def selectItem(self):
         setChildren(self.children, True)
+        selected = self.items[self.itemVar.get()]
+        if selected == None:
+            self.category.replace(self.category.v.get())
+        else:
+            self.image.config(image=IMAGES[selected.IMAGE_NAME])
+            self.name.replace(selected.NAME)
+            self.category.replace(selected.CATEGORY)
+            self.price.replace(selected.PRICE)
+
+            if selected.CATEGORY == "Shield":
+                self.reqVal.replace(selected.REQUIREMENT_VALUE)
+                self.defence.replace(selected.DEFENCE)
+                self.block.replace(selected.B_RATE)
+                self.resVal.replace(selected.REDUCTION)
+                self.resType.replace(selected.ELEMENT)
+
+            elif selected.CATEGORY == "Armour":
+                self.reqVal.replace(selected.REQUIREMENT_VALUE)
+                self.defence.replace(selected.DEFENCE)
+                self.resVal.replace(selected.REDUCTION)
+                self.resType.replace(selected.ELEMENT)
+
+            elif selected.CATEGORY == "Miscellaneous":
+                self.description.replace(selected.INFORMATION)
+                # No easy way to check for Text widget modifications
+                self.save.config(text="Update", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
+                return
+
+            else:
+                self.reqType.replace(selected.REQUIREMENT_TYPE)
+                self.reqVal.replace(selected.REQUIREMENT_VALUE)
+                self.power.replace(selected.POWER)
+                self.crit.replace(selected.C_RATE)
+                self.imbuement.replace(selected.ELEMENT)
+
+            self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], state=DISABLED)
+
+    def chooseImage(self):
+        # TODO
+        pass
+
+    def updateWidgets(self, character):
+        setChildren(self.children, False)
+        setChildren(self.buttons, True)
         self.items = character.items
         self.itemVar.set(-1)
         directories = {
@@ -146,20 +347,79 @@ class ItemWindow:
                     IMAGES[item.IMAGE_NAME] = PhotoImage(file="images\\"+directories[item.CATEGORY]+"\\"+item.IMAGE_NAME+".gif")
                 self.buttons[i].config(image=IMAGES[item.IMAGE_NAME])
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=DISABLED)
-            
+
+    def onTextChanged(self, widget):
+        widget.replace(widget.v.get()[0:widget['width']])
+        self.save.config(text="Save item", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
+
+    def onSelectionChanged(self, value):
+        self.save.config(text="Save item", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
+
+    def onCategoryChanged(self, value):
+        if value == "Shield":
+            self.requirementFrame.grid()
+            self.reqType.replace("Strength")
+            self.reqType.config(state=DISABLED)
+            self.descriptionFrame.grid_remove()
+            self.defenceFrame.grid()
+            self.powerFrame.grid_remove()
+            self.blockFrame.grid()
+            self.critFrame.grid_remove()
+            self.resFrame.grid()
+            self.imbuement.grid_remove()
+
+        elif value == "Armour":
+            self.requirementFrame.grid()
+            self.reqType.replace("Strength")
+            self.reqType.config(state=DISABLED)
+            self.descriptionFrame.grid_remove()
+            self.defenceFrame.grid()
+            self.powerFrame.grid_remove()
+            self.blockFrame.grid_remove()
+            self.critFrame.grid_remove()
+            self.resFrame.grid()
+            self.imbuement.grid_remove()
+
+        elif value == "Miscellaneous":
+            self.requirementFrame.grid_remove()
+            self.descriptionFrame.grid()
+            self.defenceFrame.grid_remove()
+            self.powerFrame.grid_remove()
+            self.blockFrame.grid_remove()
+            self.critFrame.grid_remove()
+            self.resFrame.grid_remove()
+            self.imbuement.grid_remove()
+
+        else:
+            self.requirementFrame.grid()
+            self.reqType.config(state=NORMAL)
+            self.descriptionFrame.grid_remove()
+            self.defenceFrame.grid_remove()
+            self.powerFrame.grid()
+            self.blockFrame.grid_remove()
+            self.critFrame.grid()
+            self.resFrame.grid_remove()
+            self.imbuement.grid()
+
+        self.onSelectionChanged(value)
+
+    def saveItem(self, item):
+        # TODO
+        pass
+
     def saveData(self):
         def dumpStats(character):
-            #TODO
-            pass
-            
+            character.items = self.items
+
+        self.saveItem(self.items[self.itemVar.get()])
         with open(self.path, "r") as gameFile:
             character = pickle.load(gameFile)
         dumpStats(character)
         with open(self.path, "w") as gameFile:
             pickle.dump(character, gameFile)
-        print "Saved items."
+        print "Saved items. (TEST: not yet implemented)"
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], state=DISABLED)
-        
+
 class MainWindow:
     def __init__(self, master):
         xPaddingAmount = 4
@@ -178,11 +438,11 @@ class MainWindow:
         self.stats = StatWindow(statFrame)
         self.items = ItemWindow(itemFrame)
         self.canSaveAll = False
-       
+
     def createMenu(self, master):
         menubar = Menu(master)
         master.config(menu=menubar)
-        
+
         self.fileMenu = Menu(menubar, tearoff=False)
         self.fileMenu.add_command(label="Open", command=self.load, accelerator="Ctrl+O")
         self.fileMenu.add_command(label="Save All", command=self.save, state=DISABLED, accelerator="Ctrl+S")
@@ -190,9 +450,9 @@ class MainWindow:
         master.bind("<Control-s>", lambda _: self.save())
         self.fileMenu.insert_separator(2)
         self.fileMenu.add_command(label="Exit", command=master.destroy)
-        
+
         menubar.add_cascade(label="File", menu=self.fileMenu)
-        
+
     def load(self):
         path = tkFileDialog.askopenfilename(initialdir = "/", title = "Select file", filetypes = (("Toshe's Quest Files", "*.tq"), ("All Files", "*.*")))
         with open(path, "r") as gameFile:
@@ -204,7 +464,7 @@ class MainWindow:
             self.items.updateWidgets(character)
             self.fileMenu.entryconfig(1, state=NORMAL)
             self.canSaveAll = True
-            
+
     def save(self):
         if self.canSaveAll:
             self.stats.saveData()
@@ -228,7 +488,7 @@ def init():
             # for line in rFile:
                 # name = line.strip().split("\t")[0]
                 # IMAGES[name] = PhotoImage(file="images\\"+imageString+"\\"+name+".gif")
-            
+
     global COLOURS
     COLOURS = {
         "DEFAULT_BG" : "#24828b",
@@ -238,9 +498,9 @@ def init():
 
 def start():
     root = Tk()
-    
+
     init()
-    
+
     root.iconbitmap("images\\icons\\tq.ico")
     root.title("File Editor")
     root.resizable(0, 0)
