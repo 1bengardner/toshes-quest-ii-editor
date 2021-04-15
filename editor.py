@@ -572,7 +572,7 @@ class ItemWindow:
         def dumpItems(character):
             character.items = self.items
 
-        if not self.saveItem(self.itemVar.get()):
+        if self.itemVar.get() == -1 or not self.saveItem(self.itemVar.get()):
             return
         with open(self.path, "r") as gameFile:
             character = pickle.load(gameFile)
