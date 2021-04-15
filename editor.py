@@ -37,7 +37,7 @@ class EditorEntry(Entry):
     def replace(self, text):
         self.delete(0, END)
         self.insert(END, text)
-    
+
     def validate(self, text):
         if self.constraint == "int":
             try:
@@ -141,6 +141,7 @@ class StatWindow:
 
 class ItemWindow:
     def __init__(self, master):
+        self.loadedImages = {}
         itemFrame = Frame(master, bg=COLOURS['DEFAULT_BG'])
         itemFrame.grid()
 
@@ -178,7 +179,7 @@ class ItemWindow:
                 height=64,
                 bg=COLOURS['LINK'],
                 bd=4,
-                command=self.chooseImage
+                command=lambda: self.chooseImage(master, self.category.get())
         )
         self.image.grid(row=0, column=0, padx=(0, 4), pady=(0, 4), rowspan=3, sticky='NW')
         # Name
@@ -360,9 +361,69 @@ class ItemWindow:
 
             self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], state=DISABLED)
 
-    def chooseImage(self):
-        # TODO
-        pass
+    def selectImage(self):
+        self.image.config(image=IMAGES[self.imageVar.get()])
+        self.imageName = self.imageVar.get()
+        self.top.destroy()
+
+    def chooseImage(self, master, imageCategory):
+        if imageCategory == "":
+            errorTitle = "Graphic selection error"
+            errorMessage = "Please choose an item type before selecting a graphic."
+            tkMessageBox.showerror(title=errorTitle, message=errorMessage)
+            return
+
+        imageWindow = Toplevel(master, bg=COLOURS['BLACK'])
+        imageWindow.grab_set()
+        imageWindow.iconbitmap("images\\icons\\tq.ico")
+        imageWindow.title(imageCategory+" Graphic Select")
+        self.characterName = Label(imageWindow, text="Choose an item graphic from below.", bg=COLOURS['BLACK'], fg=COLOURS['DEFAULT_FG'])
+        self.characterName.grid()
+        self.top = imageWindow
+
+        mainFrame = Frame(imageWindow, bg=COLOURS['BLACK'])
+        mainFrame.grid()
+
+        if imageCategory not in self.loadedImages:
+            self.loadedImages[imageCategory] = set()
+            if imageCategory == "Armour":
+                dataString = "armourdata"
+                imageString = "armour"
+            elif imageCategory == "Shield":
+                dataString = "shielddata"
+                imageString = "shields"
+            elif imageCategory == "Miscellaneous":
+                dataString = "miscellaneousitemdata"
+                imageString = "miscellaneous"
+            else:
+                dataString = "weapondata"
+                imageString = "weapons"
+            with open("data\\"+dataString+".txt", "r") as rFile:
+                rFile.readline()
+                for line in rFile:
+                    name = line.strip().split("\t")[0]
+                    if name not in IMAGES:
+                        IMAGES[name] = PhotoImage(file="images\\"+imageString+"\\"+name+".gif")
+                    self.loadedImages[imageCategory].add(name)
+
+        countPerRow = 10
+        i = 0
+        self.imageVar = StringVar()
+        for name in self.loadedImages[imageCategory]:
+            rb = Radiobutton(
+                mainFrame,
+                image=IMAGES[name],
+                variable=self.imageVar,
+                value=name,
+                width=64,
+                height=64,
+                bg=COLOURS['BLACK'],
+                indicatoron=0,
+                bd=4,
+                command=self.selectImage
+            )
+            rb.grid(row=i//countPerRow, column=i%countPerRow)
+            i += 1
 
     def updateWidgets(self, character):
         setChildren(self.children, False)
@@ -457,7 +518,7 @@ class ItemWindow:
 
         category = self.category.get()
         if self.imageName is None:
-            return showError("Please select an item image.")
+            return showError("Please pick an item graphic.")
         elif "" in (category, self.price.get()):
             return showError()
 
@@ -578,19 +639,6 @@ def init():
         "EURO" : PhotoImage(file="images\\icons\\euro.gif"),
         "DEFAULT" : PhotoImage(file="images\\other\\empty.gif"),
     }
-    # itemImages = {
-        # "weapondata" : "weapons",
-        # "armourdata" : "armour",
-        # "shielddata" : "shields",
-        # "miscellaneousitemdata" : "miscellaneous",
-    # }
-    # for dataString, imageString in itemImages.items():
-        # with open("data\\"+dataString+".txt", "r") as rFile:
-            # rFile.readline()
-            # for line in rFile:
-                # name = line.strip().split("\t")[0]
-                # IMAGES[name] = PhotoImage(file="images\\"+imageString+"\\"+name+".gif")
-
     global COLOURS
     COLOURS = {
         "DEFAULT_BG" : "#24828b",
