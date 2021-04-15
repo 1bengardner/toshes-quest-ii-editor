@@ -377,8 +377,8 @@ class ItemWindow:
         imageWindow.grab_set()
         imageWindow.iconbitmap("images\\icons\\tq.ico")
         imageWindow.title(imageCategory+" Graphic Select")
-        self.characterName = Label(imageWindow, text="Choose an item graphic from below.", bg=COLOURS['BLACK'], fg=COLOURS['DEFAULT_FG'])
-        self.characterName.grid()
+        helpLabel = Label(imageWindow, text="Choose an item graphic from below.", bg=COLOURS['BLACK'], fg=COLOURS['DEFAULT_FG'])
+        helpLabel.grid()
         self.top = imageWindow
 
         mainFrame = Frame(imageWindow, bg=COLOURS['BLACK'])
@@ -583,11 +583,75 @@ class ItemWindow:
         self.updateWidgets(character)
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], state=DISABLED)
 
+class FlagsWindow:
+    def __init__(self, master):
+        self.exiting = False
+        self.init = False
+        self.master = master
+
+    def show(self):
+        self.window.deiconify()
+        self.window.grab_set()
+
+    def release(self):
+        if self.exiting:
+            self.exiting = False
+            self.init = False
+            self.window.destroy()
+        else:
+            self.window.grab_release()
+            self.window.withdraw()
+
+    def updateWidgets(self, character):
+        if not self.init:
+            flagsWindow = Toplevel(self.master, bg=COLOURS['DEFAULT_FG'], relief=SUNKEN, bd=4)
+            flagsWindow.iconbitmap("images\\icons\\tq.ico")
+            flagsWindow.title("Flag Viewer")
+            flagsWindow.protocol('WM_DELETE_WINDOW', self.release)
+            self.window = flagsWindow
+            self.init = True
+            self.release()
+
+        rows = 25
+        columns = 5
+        self.pages = []
+        self.pageView = 1
+        master = Frame(self.window, bg=COLOURS['DEFAULT_FG'])
+        master.grid(row=0, column=0)
+        self.pages.append(master)
+        count = 0
+        for flag, val in character.flags.items():
+            if val is True:
+                f = Label(master, text=flag)
+            elif flag != "Discovered Areas" and flag != "Config" and flag != "Marked Areas" and flag != "Kills" and flag != "Buyback Items":
+                f = Label(master, text="{flag}: {value}".format(flag=flag, value=val))
+                if len(f['text']) > 40:
+                    f['text'] = f['text'][0:40] + "..."
+            else:
+                continue
+            f.grid(row=count%rows, column=count//rows, sticky='W', padx=2)
+            f.config(bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
+            count += 1
+            if count >= rows*columns:
+                master = Frame(self.window, bg=COLOURS['DEFAULT_FG'])
+                master.grid(row=0, column=0)
+                master.grid_remove()
+                self.pages.append(master)
+                count = 0
+        if len(self.pages) > 1:
+            self.swapButton = Button(self.window, text="1/" + str(len(self.pages)), bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], command=self.swapPage)
+            self.swapButton.grid()
+
+    def swapPage(self):
+        self.pages[self.pageView-1].grid_remove()
+        self.pageView = self.pageView % len(self.pages) + 1
+        self.pages[self.pageView-1].grid()
+        self.swapButton.config(text=str(self.pageView) + "/" + str(len(self.pages)))
+
 class MainWindow:
     def __init__(self, master):
         xPaddingAmount = 4
         yPaddingAmount = 4
-        self.createMenu(master)
         mainFrame = Frame(master, bg=COLOURS['DEFAULT_BG'], relief=SUNKEN, bd=4, padx=xPaddingAmount, pady=yPaddingAmount)
         mainFrame.grid()
         nameFrame = Frame(mainFrame, bg=COLOURS['DEFAULT_BG'])
@@ -600,7 +664,11 @@ class MainWindow:
         itemFrame.grid(row=1, column=1, padx=xPaddingAmount, pady=yPaddingAmount)
         self.stats = StatWindow(statFrame)
         self.items = ItemWindow(itemFrame)
+        self.flags = FlagsWindow(master)
+        self.createMenu(master)
         self.canSaveAll = False
+
+        master.protocol('WM_DELETE_WINDOW', lambda: self.release(master))
 
     def createMenu(self, master):
         menubar = Menu(master)
@@ -613,8 +681,11 @@ class MainWindow:
         master.bind("<Control-s>", lambda _: self.save())
         self.fileMenu.insert_separator(2)
         self.fileMenu.add_command(label="Exit", command=master.destroy)
-
         menubar.add_cascade(label="File", menu=self.fileMenu)
+
+        self.viewMenu = Menu(menubar, tearoff=False)
+        self.viewMenu.add_command(label="Flags", command=self.flags.show, state=DISABLED)
+        menubar.add_cascade(label="View", menu=self.viewMenu)
 
     def load(self):
         path = tkFileDialog.askopenfilename(initialdir = "/", title = "Select file", filetypes = (("Toshe's Quest Files", "*.tq"), ("All Files", "*.*")))
@@ -625,13 +696,24 @@ class MainWindow:
             self.stats.updateWidgets(character)
             self.items.path = path
             self.items.updateWidgets(character)
+            if self.flags.init:
+                self.flags.exiting = True
+                self.flags.release()
+            self.flags.path = path
+            self.flags.updateWidgets(character)
             self.fileMenu.entryconfig(1, state=NORMAL)
+            self.viewMenu.entryconfig(0, state=NORMAL)
             self.canSaveAll = True
 
     def save(self):
         if self.canSaveAll:
             self.stats.saveData()
             self.items.saveData()
+
+    def release(self, master):
+        self.flags.exiting = True
+        self.flags.release()
+        master.destroy()
 
 def init():
     global IMAGES
