@@ -426,10 +426,13 @@ class ItemWindow:
             rb.grid(row=i//countPerRow, column=i%countPerRow)
             i += 1
 
+    def getItems(self, character):
+        self.items = character.items
+
     def updateWidgets(self, character):
         setChildren(self.children, False)
         setChildren(self.buttons, True)
-        self.items = character.items
+        self.getItems(character)
         self.itemVar.set(-1)
         directories = {
             "Armour" : "armour",
@@ -566,20 +569,32 @@ class ItemWindow:
         self.items[index].IMAGE_NAME = self.imageName
         return "Success"
 
-    def saveData(self):
-        def dumpItems(character):
-            character.items = self.items
+    def dumpItems(self, character):
+        character.items = self.items
 
+    def saveData(self):
         if self.itemVar.get() == -1 or not self.saveItem(self.itemVar.get()):
             return
         with open(self.path, "r") as gameFile:
             character = pickle.load(gameFile)
-        dumpItems(character)
+        self.dumpItems(character)
         with open(self.path, "w") as gameFile:
             pickle.dump(character, gameFile)
         print "Saved items."
         self.updateWidgets(character)
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], state=DISABLED)
+
+class VendorWindow(ItemWindow):
+    def __init__(self, *args, **kwargs):
+        ItemWindow.__init__(self, *args, **kwargs)
+
+    def dumpItems(self, character):
+        if 'Buyback Items' in character.flags:
+            character.flags['Buyback Items'] = self.items
+
+    def getItems(self, character):
+        if 'Buyback Items' in character.flags:
+            self.items = character.flags['Buyback Items']
 
 class FlagsWindow:
     def __init__(self, master):
@@ -647,6 +662,17 @@ class FlagsWindow:
         self.swapButton.config(text=str(self.pageView) + "/" + str(len(self.pages)))
 
 class MainWindow:
+    def swapInventories(self, revert=False):
+        swapTextB = "<< Toshe's Items"
+        if self.vendorItemSwap['text'] == self.swapTextA and not revert:
+            self.vendorItemSwap['text'] = swapTextB
+            self.itemFrame.grid_remove()
+            self.vendorFrame.grid()
+        else:
+            self.vendorItemSwap['text'] = self.swapTextA
+            self.itemFrame.grid()
+            self.vendorFrame.grid_remove()
+
     def __init__(self, master):
         xPaddingAmount = 4
         yPaddingAmount = 4
@@ -658,10 +684,17 @@ class MainWindow:
         self.characterName.grid(row=0, column=0, ipadx=2)
         statFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=xPaddingAmount, text="Stats")
         statFrame.grid(row=1, column=0, padx=xPaddingAmount, pady=yPaddingAmount)
-        itemFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=xPaddingAmount, text="Items")
-        itemFrame.grid(row=1, column=1, padx=xPaddingAmount, pady=yPaddingAmount)
+        self.itemFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=xPaddingAmount, text="Items")
+        self.itemFrame.grid(row=1, column=1, padx=xPaddingAmount, pady=yPaddingAmount)
+        self.vendorFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=xPaddingAmount, text="Merchant Items")
+        self.vendorFrame.grid(row=1, column=1, padx=xPaddingAmount, pady=yPaddingAmount)
+        self.vendorFrame.grid_remove()
+        self.swapTextA = "Hidden Passage Vendor >>"
+        self.vendorItemSwap = Button(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], text=self.swapTextA, command=self.swapInventories, state=DISABLED)
+        self.vendorItemSwap.grid(row=0, column=1, sticky='E', padx=xPaddingAmount, pady=yPaddingAmount)
         self.stats = StatWindow(statFrame)
-        self.items = ItemWindow(itemFrame)
+        self.items = ItemWindow(self.itemFrame)
+        self.vendorItems = VendorWindow(self.vendorFrame)
         self.flags = FlagsWindow(master)
         self.createMenu(master)
         self.canSaveAll = False
@@ -694,6 +727,13 @@ class MainWindow:
             self.stats.updateWidgets(character)
             self.items.path = path
             self.items.updateWidgets(character)
+            if 'Buyback Items' in character.flags:
+                self.vendorItemSwap.config(state=NORMAL, bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
+                self.vendorItems.path = path
+            else:
+                self.vendorItemSwap.config(state=DISABLED, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+                self.swapInventories(True)
+            self.vendorItems.updateWidgets(character)
             if self.flags.init:
                 self.flags.exiting = True
                 self.flags.release()
@@ -707,6 +747,7 @@ class MainWindow:
         if self.canSaveAll:
             self.stats.saveData()
             self.items.saveData()
+            self.vendorItems.saveData()
 
     def release(self, master):
         self.flags.exiting = True
