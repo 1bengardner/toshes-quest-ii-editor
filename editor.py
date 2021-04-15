@@ -26,12 +26,32 @@ class EditorEntry(Entry):
         if 'onTextChanged' in kwargs:
             onTextChanged = kwargs.pop('onTextChanged')
             self.v.trace("w", lambda *args: onTextChanged(self))
-        Entry.__init__(self, *args, validatecommand=None, **kwargs)
-        self.config(textvariable=self.v)
+        if 'constraint' in kwargs:
+            self.constraint = kwargs.pop('constraint')
+        else:
+            self.constraint = None
+        Entry.__init__(self, *args, **kwargs)
+        vcmd = (self.master.register(self.validate), '%P')
+        self.config(textvariable=self.v, validatecommand=vcmd, validate='key')
 
     def replace(self, text):
         self.delete(0, END)
         self.insert(END, text)
+    
+    def validate(self, text):
+        if self.constraint == "int":
+            try:
+                if text not in ("") and int(text) < 0:
+                    return False
+            except ValueError:
+                return False
+        elif self.constraint == "float":
+            try:
+                if text not in ("", ".") and float(text) < 0:
+                    return False
+            except ValueError:
+                return False
+        return len(text) <= self['width']
 
 class EditorDropdown(OptionMenu):
     def __init__(self, *args, **kwargs):
@@ -62,27 +82,27 @@ class StatWindow:
 
         levelLabel = Label(statFrame, text="Level", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         levelLabel.grid(row=0, column=0)
-        self.level = EditorEntry(statFrame, width=2, onTextChanged=self.onTextChanged)
+        self.level = EditorEntry(statFrame, width=2, onTextChanged=self.onTextChanged, constraint="int")
         self.level.grid(row=0, column=1, sticky='E')
 
         strengthLabel = Label(statFrame, text="Strength", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         strengthLabel.grid(row=1, column=0)
-        self.strength = EditorEntry(statFrame, width=3, onTextChanged=self.onTextChanged)
+        self.strength = EditorEntry(statFrame, width=3, onTextChanged=self.onTextChanged, constraint="int")
         self.strength.grid(row=1, column=1, sticky='E')
 
         dexterityLabel = Label(statFrame, text="Dexterity", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         dexterityLabel.grid(row=2, column=0)
-        self.dexterity = EditorEntry(statFrame, width=3, onTextChanged=self.onTextChanged)
+        self.dexterity = EditorEntry(statFrame, width=3, onTextChanged=self.onTextChanged, constraint="int")
         self.dexterity.grid(row=2, column=1, sticky='E')
 
         wisdomLabel = Label(statFrame, text="Wisdom", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         wisdomLabel.grid(row=3, column=0)
-        self.wisdom = EditorEntry(statFrame, width=3, onTextChanged=self.onTextChanged)
+        self.wisdom = EditorEntry(statFrame, width=3, onTextChanged=self.onTextChanged, constraint="int")
         self.wisdom.grid(row=3, column=1, sticky='E')
 
         eurosLabel = Label(statFrame, image=IMAGES['EURO'], bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         eurosLabel.grid(row=4, column=0)
-        self.euros = EditorEntry(statFrame, width=6, onTextChanged=self.onTextChanged)
+        self.euros = EditorEntry(statFrame, width=6, onTextChanged=self.onTextChanged, constraint="int")
         self.euros.grid(row=4, column=1, sticky='E')
 
         self.save = Button(statFrame, text="Save", width=10, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
@@ -101,7 +121,6 @@ class StatWindow:
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=DISABLED)
 
     def onTextChanged(self, widget):
-        widget.replace(widget.v.get()[0:widget['width']])
         self.save.config(text="Save stats", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
 
     def saveData(self):
@@ -187,7 +206,7 @@ class ItemWindow:
         priceFrame.grid(row=1, column=1, sticky='E')
         eurosLabel = Label(priceFrame, image=IMAGES['EURO'], bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         eurosLabel.pack(side=LEFT)
-        self.price = EditorEntry(priceFrame, width=6, onTextChanged=self.onTextChanged)
+        self.price = EditorEntry(priceFrame, width=6, onTextChanged=self.onTextChanged, constraint="int")
         self.price.pack(side=LEFT)
         # Requirement
         requirementFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
@@ -196,7 +215,7 @@ class ItemWindow:
         self.requirementFrame.grid_remove()
         requirementLabel = Label(requirementFrame, text="Requires", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         requirementLabel.pack(side=LEFT)
-        self.reqVal = EditorEntry(requirementFrame, width=3, onTextChanged=self.onTextChanged)
+        self.reqVal = EditorEntry(requirementFrame, width=3, onTextChanged=self.onTextChanged, constraint="int")
         self.reqVal.pack(side=LEFT)
         stats = [
             "Strength",
@@ -223,7 +242,7 @@ class ItemWindow:
         self.defenceFrame.grid_remove()
         defenceLabel = Label(defenceFrame, text="Defence", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         defenceLabel.pack(side=LEFT)
-        self.defence = EditorEntry(defenceFrame, width=3, onTextChanged=self.onTextChanged)
+        self.defence = EditorEntry(defenceFrame, width=3, onTextChanged=self.onTextChanged, constraint="int")
         self.defence.pack(side=LEFT)
         # Power
         powerFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
@@ -232,7 +251,7 @@ class ItemWindow:
         self.powerFrame.grid_remove()
         powerLabel = Label(powerFrame, text="Power", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         powerLabel.pack(side=LEFT)
-        self.power = EditorEntry(powerFrame, width=3, onTextChanged=self.onTextChanged)
+        self.power = EditorEntry(powerFrame, width=3, onTextChanged=self.onTextChanged, constraint="int")
         self.power.pack(side=LEFT)
         # Block chance
         blockFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
@@ -241,7 +260,7 @@ class ItemWindow:
         self.blockFrame.grid_remove()
         blockLabel = Label(blockFrame, text="Block %", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         blockLabel.pack(side=LEFT)
-        self.block = EditorEntry(blockFrame, width=3, onTextChanged=self.onTextChanged)
+        self.block = EditorEntry(blockFrame, width=3, onTextChanged=self.onTextChanged, constraint="int")
         self.block.pack(side=LEFT)
         # Crit chance
         critFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
@@ -250,7 +269,7 @@ class ItemWindow:
         self.critFrame.grid_remove()
         critLabel = Label(critFrame, text="Crit %", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         critLabel.pack(side=LEFT)
-        self.crit = EditorEntry(critFrame, width=5, onTextChanged=self.onTextChanged)
+        self.crit = EditorEntry(critFrame, width=5, onTextChanged=self.onTextChanged, constraint="float")
         self.crit.pack(side=LEFT)
         # Reduction
         resFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
@@ -259,7 +278,7 @@ class ItemWindow:
         self.resFrame.grid_remove()
         resLabel = Label(resFrame, text="Resist %", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         resLabel.pack(side=LEFT)
-        self.resVal = EditorEntry(resFrame, width=3, onTextChanged=self.onTextChanged)
+        self.resVal = EditorEntry(resFrame, width=3, onTextChanged=self.onTextChanged, constraint="int")
         self.resVal.pack(side=LEFT)
         resists = [
             "Physical",
@@ -291,7 +310,7 @@ class ItemWindow:
         self.damageFrame.grid_remove()
         damageLabel = Label(damageFrame, text="Crit Dmg %", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         damageLabel.pack(side=LEFT)
-        self.damage = EditorEntry(damageFrame, width=3, onTextChanged=self.onTextChanged)
+        self.damage = EditorEntry(damageFrame, width=3, onTextChanged=self.onTextChanged, constraint="int")
         self.damage.pack(side=LEFT)
 
         self.save = Button(infoFrame, text="Save", width=10, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
@@ -371,7 +390,6 @@ class ItemWindow:
         self.save.config(text="Select item", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=DISABLED)
 
     def onTextChanged(self, widget):
-        widget.replace(widget.v.get()[0:widget['width']])
         self.save.config(text="Save item", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
 
     def onSelectionChanged(self, value):
