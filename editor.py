@@ -654,14 +654,26 @@ class FlagsWindow:
                 self.pages.append(master)
                 count = 0
         if len(self.pages) > 1:
-            self.swapButton = Button(self.window, text="1/" + str(len(self.pages)), bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], command=self.swapPage)
-            self.swapButton.grid()
+            pageFrame = Frame(self.window, bg=COLOURS['DEFAULT_FG'])
+            pageFrame.grid(row=1, column=0)
+            prevButton = Button(pageFrame, text="<<", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], command=self.prevPage)
+            prevButton.pack(side=LEFT)
+            self.pageCount = Label(pageFrame, text="1/" + str(len(self.pages)), bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
+            self.pageCount.pack(side=LEFT)
+            nextButton = Button(pageFrame, text=">>", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], command=self.nextPage)
+            nextButton.pack(side=LEFT)
 
-    def swapPage(self):
+    def nextPage(self):
+        self.swapPage(1)
+
+    def prevPage(self):
+        self.swapPage(-1)
+
+    def swapPage(self, inc):
         self.pages[self.pageView-1].grid_remove()
-        self.pageView = self.pageView % len(self.pages) + 1
+        self.pageView = (self.pageView-1 + inc) % len(self.pages) + 1
         self.pages[self.pageView-1].grid()
-        self.swapButton.config(text=str(self.pageView) + "/" + str(len(self.pages)))
+        self.pageCount.config(text=str(self.pageView) + "/" + str(len(self.pages)))
 
 class MainWindow:
     def swapInventories(self, revert=False):
