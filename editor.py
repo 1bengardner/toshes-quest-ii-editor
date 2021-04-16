@@ -468,7 +468,7 @@ class ItemWindow:
         self.erase.config(fg="red", bg=COLOURS['DEFAULT_BG'], relief=RAISED, state=DISABLED)
 
     def onItemModified(self, widget):
-        self.save.config(text="Save item", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
+        self.save.config(text="Save", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
 
     def onCategoryChanged(self, value):
         self.image.config(image=IMAGES['DEFAULT'])
@@ -585,6 +585,8 @@ class ItemWindow:
                 int(self.damage.get()),
             )
         self.items[index].IMAGE_NAME = self.imageName
+        self.buttons[index].config(image=IMAGES[self.imageName])
+        self.erase.config(state=NORMAL, bg=COLOURS['DEFAULT_FG'])
         return "Success"
 
     def dumpItems(self, character):
@@ -599,7 +601,6 @@ class ItemWindow:
         with open(self.path, "w") as gameFile:
             pickle.dump(character, gameFile)
         print "Saved items."
-        self.updateWidgets(character)
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], state=DISABLED)
 
 class VendorWindow(ItemWindow):
@@ -648,7 +649,7 @@ class FlagsWindow:
             flagsWindow.protocol('WM_DELETE_WINDOW', self.release)
             mainFrame = Frame(flagsWindow, bg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'])
             mainFrame.grid()
-            helpLabel = Label(mainFrame, text="Flags - Click to delete", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
+            helpLabel = Label(mainFrame, text="Click on a flag to delete it.", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
             helpLabel.grid(row=0, column=0, pady=PADDING['DEFAULT'])
             entryFrame = Frame(mainFrame, bg=COLOURS['DEFAULT_FG'])
             entryFrame.grid(row=0, column=0, pady=PADDING['DEFAULT'], sticky='W')
@@ -802,7 +803,7 @@ class MainWindow:
         master.config(menu=menubar)
 
         self.fileMenu = Menu(menubar, tearoff=False)
-        self.fileMenu.add_command(label="Open", command=self.load, accelerator="Ctrl+O")
+        self.fileMenu.add_command(label="Open...", command=self.load, accelerator="Ctrl+O")
         self.fileMenu.add_command(label="Save All", command=self.save, state=DISABLED, accelerator="Ctrl+S")
         master.bind("<Control-o>", lambda _: self.load())
         master.bind("<Control-s>", lambda _: self.save())
@@ -824,13 +825,13 @@ class MainWindow:
             self.stats.updateWidgets(character)
             self.items.path = path
             self.items.updateWidgets(character)
+            self.vendorItems.path = path
+            self.vendorItems.updateWidgets(character)
             if 'Buyback Items' in character.flags:
                 self.vendorItemSwap.config(state=NORMAL, bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
-                self.vendorItems.path = path
             else:
                 self.vendorItemSwap.config(state=DISABLED, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
                 self.swapInventories(True)
-            self.vendorItems.updateWidgets(character)
             self.flags.terminate()
             self.flags.path = path
             self.flags.updateWidgets(character)
