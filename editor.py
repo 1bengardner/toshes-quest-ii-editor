@@ -20,6 +20,12 @@ def setChildren(children, enabled):
         else:
             child.config(state=(NORMAL if enabled else DISABLED))
 
+def selectAll(event):
+    if event.widget.winfo_class() == "Entry":
+        event.widget.select_range(0, END)
+    elif event.widget.winfo_class() == "Text":
+        event.widget.tag_add(SEL, 0.0, END)
+
 class EditorEntry(Entry):
     def __init__(self, *args, **kwargs):
         self.v = StringVar()
@@ -169,7 +175,7 @@ class ItemWindow:
         ttk.Separator(itemFrame, orient=VERTICAL).grid(row=0, column=1, padx=4, sticky='NS')
 
         infoFrame = Frame(itemFrame, bg=COLOURS['DEFAULT_BG'])
-        infoFrame.grid(row=0, column=2, sticky='nsew')
+        infoFrame.grid(row=0, column=2, sticky='news')
         # Image
         self.imageName = None
         self.image = Button(
@@ -617,51 +623,86 @@ class FlagsWindow:
             self.window.grab_release()
             self.window.withdraw()
 
+    def terminate(self):
+        if self.init:
+            self.exiting = True
+            self.release()
+
     def updateWidgets(self, character):
         if not self.init:
             flagsWindow = Toplevel(self.master, bg=COLOURS['DEFAULT_FG'], relief=SUNKEN, bd=4)
             flagsWindow.iconbitmap("images\\icons\\tq.ico")
-            flagsWindow.title("Flag Viewer")
+            flagsWindow.title("Flags")
             flagsWindow.protocol('WM_DELETE_WINDOW', self.release)
+            mainFrame = Frame(flagsWindow, bg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'])
+            mainFrame.grid()
+            helpLabel = Label(mainFrame, text="Flags - Click to delete", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
+            helpLabel.grid(row=0, column=0, pady=PADDING['DEFAULT'])
+            entryFrame = Frame(mainFrame, bg=COLOURS['DEFAULT_FG'])
+            entryFrame.grid(row=0, column=0, pady=PADDING['DEFAULT'], sticky='W')
+            flagLabel = Label(entryFrame, text="New flag: ", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
+            flagLabel.pack(side=LEFT)
+            self.flagEntry = Entry(entryFrame)
+            self.flagEntry.pack(side=LEFT)
+            entryButton = Button(entryFrame, text="Add", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], command=self.addFlag)
+            entryButton.pack(side=LEFT)
+            flagsWindow.bind("<Return>", lambda _: self.addFlag())
+            self.save = Button(mainFrame, text="Saved", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=DISABLED, command=self.saveData)
+            self.save.grid(row=2, column=0, padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'], sticky='SE')
             self.window = flagsWindow
+            self.flagsFrame = mainFrame
             self.init = True
             self.release()
 
-        rows = 25
-        columns = 5
+        self.flags = character.flags
+        self.rows = 15
+        self.columns = 4
         self.pages = []
         self.pageView = 1
-        master = Frame(self.window, bg=COLOURS['DEFAULT_FG'])
-        master.grid(row=0, column=0)
+        master = self.createFlagPanel()
         self.pages.append(master)
-        count = 0
-        for flag, val in character.flags.items():
+        self.count = 0
+        self.flagVar = StringVar()
+        self.flagButtons = {}
+        for flag, val in self.flags.items():
             if val is True:
-                f = Label(master, text=flag)
-            elif flag != "Discovered Areas" and flag != "Config" and flag != "Marked Areas" and flag != "Kills" and flag != "Buyback Items":
-                f = Label(master, text="{flag}: {value}".format(flag=flag, value=val))
-                if len(f['text']) > 40:
-                    f['text'] = f['text'][0:40] + "..."
-            else:
-                continue
-            f.grid(row=count%rows, column=count//rows, sticky='W', padx=2)
-            f.config(bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
-            count += 1
-            if count >= rows*columns:
-                master = Frame(self.window, bg=COLOURS['DEFAULT_FG'])
-                master.grid(row=0, column=0)
-                master.grid_remove()
-                self.pages.append(master)
-                count = 0
-        if len(self.pages) > 1:
-            pageFrame = Frame(self.window, bg=COLOURS['DEFAULT_FG'])
-            pageFrame.grid(row=1, column=0)
-            prevButton = Button(pageFrame, text="<<", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], command=self.prevPage)
-            prevButton.pack(side=LEFT)
-            self.pageCount = Label(pageFrame, text="1/" + str(len(self.pages)), bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
-            self.pageCount.pack(side=LEFT)
-            nextButton = Button(pageFrame, text=">>", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], command=self.nextPage)
-            nextButton.pack(side=LEFT)
+                master = self.createRadiobutton(master, flag, self.flagVar, self.deleteFlag)
+
+    def createFlagPanel(self):
+        master = Frame(self.flagsFrame, bg=COLOURS['DEFAULT_FG'], width=900, height=450, pady=8)
+        master.grid(row=1, column=0)
+        master.grid_propagate(False)
+        return master
+
+    def createRadiobutton(self, master, flag, var, cmd):
+        rb = Radiobutton(
+            master,
+            text=flag + " x",
+            variable=var,
+            value=flag,
+            indicatoron=0,
+            command=cmd
+        )
+        rb.grid(row=self.count%self.rows, column=self.count//self.rows, sticky='W', padx=PADDING['DEFAULT'])
+        rb.config(bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], activebackground="red")
+        self.flagButtons[flag] = rb
+        self.count += 1
+        if self.count >= self.rows*self.columns:
+            master = self.createFlagPanel()
+            master.grid_remove()
+            self.pages.append(master)
+            self.count = 0
+            if len(self.pages) == 2:
+                pageFrame = Frame(self.flagsFrame, bg=COLOURS['DEFAULT_FG'])
+                pageFrame.grid(row=2, column=0, pady=PADDING['DEFAULT'], sticky='S')
+                prevButton = Button(pageFrame, text="<<", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], command=self.prevPage)
+                prevButton.pack(side=LEFT)
+                self.pageCount = Label(pageFrame, text="1/2", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
+                self.pageCount.pack(side=LEFT)
+                nextButton = Button(pageFrame, text=">>", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], command=self.nextPage)
+                nextButton.pack(side=LEFT)
+            self.pageCount.config(text=str(self.pageView) + "/" + str(len(self.pages)))
+        return master
 
     def nextPage(self):
         self.swapPage(1)
@@ -674,6 +715,28 @@ class FlagsWindow:
         self.pageView = (self.pageView-1 + inc) % len(self.pages) + 1
         self.pages[self.pageView-1].grid()
         self.pageCount.config(text=str(self.pageView) + "/" + str(len(self.pages)))
+
+    def deleteFlag(self):
+        del self.flags[self.flagVar.get()]
+        self.flagButtons[self.flagVar.get()].destroy()
+        self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=NORMAL)
+
+    def addFlag(self):
+        if self.flagEntry.get() not in self.flags:
+            self.createRadiobutton(self.pages[-1], self.flagEntry.get(), self.flagVar, self.deleteFlag)
+        self.flags[self.flagEntry.get()] = True
+        self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=NORMAL)
+
+    def saveData(self):
+        if not self.init or self.save['state'] == DISABLED:
+            return
+        with open(self.path, "r") as gameFile:
+            character = pickle.load(gameFile)
+        character.flags = self.flags
+        with open(self.path, "w") as gameFile:
+            pickle.dump(character, gameFile)
+        print "Saved flags."
+        self.save.config(text="Saved", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=DISABLED)
 
 class MainWindow:
     def swapInventories(self, revert=False):
@@ -688,24 +751,23 @@ class MainWindow:
             self.vendorFrame.grid_remove()
 
     def __init__(self, master):
-        xPaddingAmount = 4
-        yPaddingAmount = 4
-        mainFrame = Frame(master, bg=COLOURS['DEFAULT_BG'], relief=SUNKEN, bd=4, padx=xPaddingAmount, pady=yPaddingAmount)
+        master.bind('<Control-Key-a>', selectAll)
+        mainFrame = Frame(master, bg=COLOURS['DEFAULT_BG'], relief=SUNKEN, bd=4, padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
         mainFrame.grid()
         nameFrame = Frame(mainFrame, bg=COLOURS['DEFAULT_BG'])
-        nameFrame.grid(columnspan=2, pady=yPaddingAmount)
+        nameFrame.grid(columnspan=2, pady=PADDING['DEFAULT'])
         self.characterName = Label(nameFrame, text="Load a character. (Ctrl+O)", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         self.characterName.grid(row=0, column=0, ipadx=2)
-        statFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=xPaddingAmount, text="Stats")
-        statFrame.grid(row=1, column=0, padx=xPaddingAmount, pady=yPaddingAmount)
-        self.itemFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=xPaddingAmount, text="Items")
-        self.itemFrame.grid(row=1, column=1, padx=xPaddingAmount, pady=yPaddingAmount)
-        self.vendorFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=xPaddingAmount, text="Merchant Items")
-        self.vendorFrame.grid(row=1, column=1, padx=xPaddingAmount, pady=yPaddingAmount)
+        statFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], text="Stats")
+        statFrame.grid(row=1, column=0, padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
+        self.itemFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], text="Items")
+        self.itemFrame.grid(row=1, column=1, padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
+        self.vendorFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], text="Merchant Items")
+        self.vendorFrame.grid(row=1, column=1, padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
         self.vendorFrame.grid_remove()
         self.swapTextA = "Hidden Passage Vendor >>"
         self.vendorItemSwap = Button(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], text=self.swapTextA, command=self.swapInventories, state=DISABLED)
-        self.vendorItemSwap.grid(row=0, column=1, sticky='E', padx=xPaddingAmount, pady=yPaddingAmount)
+        self.vendorItemSwap.grid(row=0, column=1, sticky='E', padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
         self.stats = StatWindow(statFrame)
         self.items = ItemWindow(self.itemFrame)
         self.vendorItems = VendorWindow(self.vendorFrame)
@@ -724,13 +786,14 @@ class MainWindow:
         self.fileMenu.add_command(label="Save All", command=self.save, state=DISABLED, accelerator="Ctrl+S")
         master.bind("<Control-o>", lambda _: self.load())
         master.bind("<Control-s>", lambda _: self.save())
+        master.bind("<Control-w>", lambda _: master.destroy())
         self.fileMenu.insert_separator(2)
-        self.fileMenu.add_command(label="Exit", command=master.destroy)
+        self.fileMenu.add_command(label="Exit", command=master.destroy, accelerator="Ctrl+W")
         menubar.add_cascade(label="File", menu=self.fileMenu)
 
         self.viewMenu = Menu(menubar, tearoff=False)
         self.viewMenu.add_command(label="Flags", command=self.flags.show, state=DISABLED)
-        menubar.add_cascade(label="View", menu=self.viewMenu)
+        menubar.add_cascade(label="Edit", menu=self.viewMenu)
 
     def load(self):
         path = tkFileDialog.askopenfilename(initialdir = "/", title = "Select file", filetypes = (("Toshe's Quest Files", "*.tq"), ("All Files", "*.*")))
@@ -748,9 +811,7 @@ class MainWindow:
                 self.vendorItemSwap.config(state=DISABLED, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
                 self.swapInventories(True)
             self.vendorItems.updateWidgets(character)
-            if self.flags.init:
-                self.flags.exiting = True
-                self.flags.release()
+            self.flags.terminate()
             self.flags.path = path
             self.flags.updateWidgets(character)
             self.fileMenu.entryconfig(1, state=NORMAL)
@@ -762,11 +823,10 @@ class MainWindow:
             self.stats.saveData()
             self.items.saveData()
             self.vendorItems.saveData()
+            self.flags.saveData()
 
     def release(self, master):
-        if self.flags.init:
-            self.flags.exiting = True
-            self.flags.release()
+        self.flags.terminate()
         master.destroy()
 
 def init():
@@ -781,6 +841,10 @@ def init():
         "DEFAULT_FG" : "#f4ead2",
         "BLACK" : "#000000",
         "LINK" : "#0000ff",
+    }
+    global PADDING
+    PADDING = {
+        "DEFAULT" : 4,
     }
 
     tkFont.nametofont("TkDefaultFont").configure(size=10)
