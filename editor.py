@@ -595,6 +595,8 @@ class VendorWindow(ItemWindow):
     def getItems(self, character):
         if 'Buyback Items' in character.flags:
             self.items = character.flags['Buyback Items']
+        else:
+            self.items = []
 
 class FlagsWindow:
     def __init__(self, master):
@@ -750,8 +752,9 @@ class MainWindow:
             self.vendorItems.saveData()
 
     def release(self, master):
-        self.flags.exiting = True
-        self.flags.release()
+        if self.flags.init:
+            self.flags.exiting = True
+            self.flags.release()
         master.destroy()
 
 def init():
