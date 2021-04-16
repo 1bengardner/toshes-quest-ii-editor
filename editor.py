@@ -323,6 +323,9 @@ class ItemWindow:
         self.save = Button(infoFrame, text="Save", width=10, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
         self.save.grid(row=5, columnspan=2, pady=8)
 
+        self.erase = Button(infoFrame, text="Erase", width=10, bg=COLOURS['DEFAULT_BG'], relief=FLAT, command=self.eraseItem)
+        self.erase.grid(row=5, columnspan=2, pady=8, sticky='E')
+
         self.children = itemFrame.winfo_children()
         setChildren(self.children, False)
 
@@ -331,6 +334,7 @@ class ItemWindow:
         selected = self.items[self.itemVar.get()]
         if selected == None:
             self.category.replace(self.category.get())
+            self.erase.config(state=DISABLED, bg=COLOURS['DEFAULT_BG'])
         else:
             self.name.replace(selected.NAME)
             self.category.replace(selected.CATEGORY)
@@ -355,6 +359,7 @@ class ItemWindow:
                 self.description.replace(selected.INFORMATION.replace("*", "\n"))
                 # No easy way to check for Text widget modifications
                 self.save.config(text="Update", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
+                self.erase.config(bg=COLOURS['DEFAULT_FG'])
                 return
 
             else:
@@ -366,6 +371,7 @@ class ItemWindow:
                 self.damage.replace(selected.C_DAMAGE)
 
             self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], state=DISABLED)
+            self.erase.config(bg=COLOURS['DEFAULT_FG'])
 
     def selectImage(self):
         self.image.config(image=IMAGES[self.imageVar.get()])
@@ -458,7 +464,8 @@ class ItemWindow:
                 if item.IMAGE_NAME not in IMAGES:
                     IMAGES[item.IMAGE_NAME] = PhotoImage(file="images\\"+directories[item.CATEGORY]+"\\"+item.IMAGE_NAME+".gif")
                 self.buttons[i].config(image=IMAGES[item.IMAGE_NAME])
-        self.save.config(text="Select item", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=DISABLED)
+        self.save.config(text="Save", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=DISABLED)
+        self.erase.config(fg="red", bg=COLOURS['DEFAULT_BG'], relief=RAISED, state=DISABLED)
 
     def onItemModified(self, widget):
         self.save.config(text="Save item", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
@@ -516,6 +523,11 @@ class ItemWindow:
             self.damageFrame.grid()
 
         self.onItemModified(self.category)
+
+    def eraseItem(self):
+        self.items[self.itemVar.get()] = None
+        self.buttons[self.itemVar.get()].config(image=IMAGES['DEFAULT'])
+        self.selectItem()
 
     def saveItem(self, index):
         def showError(customMessage=None):
@@ -578,8 +590,8 @@ class ItemWindow:
     def dumpItems(self, character):
         character.items = self.items
 
-    def saveData(self):
-        if self.itemVar.get() == -1 or not self.saveItem(self.itemVar.get()):
+    def saveData(self, saveAll=False):
+        if (self.itemVar.get() == -1 or not self.saveItem(self.itemVar.get())) and not saveAll:
             return
         with open(self.path, "r") as gameFile:
             character = pickle.load(gameFile)
@@ -821,8 +833,8 @@ class MainWindow:
     def save(self):
         if self.canSaveAll:
             self.stats.saveData()
-            self.items.saveData()
-            self.vendorItems.saveData()
+            self.items.saveData(True)
+            self.vendorItems.saveData(True)
             self.flags.saveData()
 
     def release(self, master):
