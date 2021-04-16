@@ -659,8 +659,13 @@ class FlagsWindow:
             entryButton = Button(entryFrame, text="Add", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], command=self.addFlag)
             entryButton.pack(side=LEFT)
             flagsWindow.bind("<Return>", lambda _: self.addFlag())
-            self.save = Button(mainFrame, text="Saved", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=DISABLED, command=self.saveData)
-            self.save.grid(row=2, column=0, padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'], sticky='SE')
+            saveFrame = Frame(mainFrame, bg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
+            saveFrame.grid(row=2, column=0, sticky='SE')
+            self.unsaved = Label(saveFrame, text="You have unsaved changes.", bg=COLOURS['DEFAULT_FG'])
+            self.unsaved.grid(row=0, column=0, padx=8)
+            self.unsaved.grid_remove()
+            self.save = Button(saveFrame, text="Saved", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=DISABLED, command=self.saveData)
+            self.save.grid(row=0, column=1)
             self.window = flagsWindow
             self.flagsFrame = mainFrame
             self.init = True
@@ -731,13 +736,15 @@ class FlagsWindow:
     def deleteFlag(self):
         del self.flags[self.flagVar.get()]
         self.flagButtons[self.flagVar.get()].destroy()
-        self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=NORMAL)
+        self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
+        self.unsaved.grid()
 
     def addFlag(self):
         if self.flagEntry.get() not in self.flags:
             self.createRadiobutton(self.pages[-1], self.flagEntry.get(), self.flagVar, self.deleteFlag)
         self.flags[self.flagEntry.get()] = True
-        self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=NORMAL)
+        self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
+        self.unsaved.grid()
 
     def saveData(self):
         if not self.init or self.save['state'] == DISABLED:
@@ -749,6 +756,7 @@ class FlagsWindow:
             pickle.dump(character, gameFile)
         print "Saved flags."
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=DISABLED)
+        self.unsaved.grid_remove()
 
 class MainWindow:
     def swapInventories(self, revert=False):
