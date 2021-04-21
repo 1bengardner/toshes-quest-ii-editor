@@ -5,7 +5,6 @@ import tkFileDialog
 import pickle
 import ttk
 import tkFont
-import tkMessageBox
 from TUAShield import Shield
 from TUAArmour import Armour
 from TUAMiscellaneousItem import MiscellaneousItem
@@ -27,7 +26,7 @@ def selectAll(event):
         event.widget.tag_add(SEL, 0.0, END)
 
 def findCharacterByName(data, name):
-    for mercenary in data.mercenaries + [data]:
+    for mercenary in [data] + (data.mercenaries if hasattr(data, "mercenaries") else []):
         if mercenary.NAME == name:
             return mercenary
     return None
@@ -134,7 +133,7 @@ class StatWindow:
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=DISABLED)
 
     def onStatModified(self, widget):
-        self.save.config(text="Save stats", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
+        self.save.config(text="Save", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
 
     def saveData(self):
         def dumpStats(character):
@@ -327,11 +326,18 @@ class ItemWindow:
         self.damage = EditorEntry(damageFrame, width=3, onTextChanged=self.onItemModified, constraint="int")
         self.damage.pack(side=LEFT)
 
-        self.save = Button(infoFrame, text="Save", width=10, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
-        self.save.grid(row=5, columnspan=2, pady=(20, 0))
-
-        self.erase = Button(infoFrame, text="Delete", width=10, bg=COLOURS['DEFAULT_BG'], relief=FLAT, command=self.eraseItem)
-        self.erase.grid(row=5, columnspan=2, pady=(20, 0), sticky='E')
+        interactionFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
+        interactionFrame.grid(row=5, columnspan=2, pady=(12, 0))
+        self.save = Button(interactionFrame, text="Save", width=10, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
+        self.save.grid(row=0, column=1, padx=8)
+        self.erase = Button(interactionFrame, text="Delete", width=10, bg=COLOURS['DEFAULT_BG'], relief=FLAT, command=self.eraseItem)
+        self.erase.grid(row=0, column=2)
+        errorFrame = Frame(interactionFrame, bg=COLOURS['DEFAULT_BG'])
+        errorFrame.grid(row=0, column=0)
+        self.error = Label(errorFrame, bg=COLOURS['ERROR_BG'], fg=COLOURS['ERROR_FG'], width=18, height=3, relief=RIDGE, wraplength=100, font=("TkDefaultFont", 8))
+        self.error.grid(row=0, column=0)
+        self.error.grid_remove()
+        errorFrame.config(width=self.error.winfo_reqwidth(), height=self.error.winfo_reqheight())
 
         self.children = itemFrame.winfo_children()
         setChildren(self.children, False)
@@ -390,7 +396,7 @@ class ItemWindow:
         if imageCategory == "":
             errorTitle = "Graphic selection error"
             errorMessage = "Please choose an item type before selecting a graphic."
-            tkMessageBox.showerror(title=errorTitle, message=errorMessage)
+            self.showError(errorMessage, errorTitle)
             return
 
         imageWindow = Toplevel(master, bg=COLOURS['BLACK'])
@@ -449,6 +455,7 @@ class ItemWindow:
         self.items = character.items
 
     def updateWidgets(self, character):
+        self.error.grid_remove()
         setChildren(self.children, False)
         setChildren(self.buttons, True)
         self.getItems(character)
@@ -472,10 +479,11 @@ class ItemWindow:
                     IMAGES[item.IMAGE_NAME] = PhotoImage(file="images\\"+directories[item.CATEGORY]+"\\"+item.IMAGE_NAME+".gif")
                 self.buttons[i].config(image=IMAGES[item.IMAGE_NAME])
         self.save.config(text="Save", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=DISABLED)
-        self.erase.config(fg="red", bg=COLOURS['DEFAULT_BG'], relief=RAISED, state=DISABLED)
+        self.erase.config(fg=COLOURS['ERROR_BG'], bg=COLOURS['DEFAULT_BG'], relief=RAISED, state=DISABLED)
 
     def onItemModified(self, widget):
         self.save.config(text="Save", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
+        self.error.grid_remove()
 
     def onCategoryChanged(self, value):
         self.image.config(image=IMAGES['DEFAULT'])
@@ -543,7 +551,7 @@ class ItemWindow:
                 return
             errorTitle = "Item error"
             errorMessage = "Please enter a value for all item stats." if not customMessage else customMessage
-            tkMessageBox.showerror(title=errorTitle, message=errorMessage)
+            self.showError(errorMessage, errorTitle)
 
         category = self.category.get()
         if self.imageName is None:
@@ -612,6 +620,12 @@ class ItemWindow:
             pickle.dump(character, gameFile)
         print "Saved items."
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], state=DISABLED)
+
+    def showError(self, message, title=None):
+        self.error.config(text=message)
+        self.error.grid()
+        self.error.config(bg=COLOURS['ERROR_FG'])
+        self.error.after(75, lambda: self.error.config(bg=COLOURS['ERROR_BG']))
 
 class VendorWindow(ItemWindow):
     def __init__(self, *args, **kwargs):
@@ -712,7 +726,7 @@ class FlagsWindow:
             command=cmd
         )
         rb.grid(row=self.count%self.rows, column=self.count//self.rows, sticky='W', padx=PADDING['DEFAULT'])
-        rb.config(bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], activebackground="red")
+        rb.config(bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], activebackground=COLOURS['ERROR_BG'])
         self.flagButtons[flag] = rb
         self.count += 1
         if self.count >= self.rows*self.columns:
@@ -858,7 +872,7 @@ class MainWindow:
         with open(path, "r") as gameFile:
             character = pickle.load(gameFile)
         self.characterName.config(relief=GROOVE, text=path.rsplit('/', 1)[-1], font=("TkDefaultFont", 16))
-        unlockedPortraits = [mercenary.NAME for mercenary in character.mercenaries + [character]]
+        unlockedPortraits = [mercenary.NAME for mercenary in [character] + (character.mercenaries if hasattr(character, "mercenaries") else [])]
         for portrait in self.portraits:
             self.portraits[portrait].config(state=(NORMAL if portrait in unlockedPortraits else DISABLED))
         self.charVar.set("Toshe")
@@ -906,7 +920,9 @@ def init():
         "DEFAULT_BG" : "#24828b",
         "DEFAULT_FG" : "#f4ead2",
         "BLACK" : "#000000",
-        "LINK" : "#0000ff",
+        "LINK" : "blue",
+        "ERROR_BG" : "red",
+        "ERROR_FG" : "white",
     }
     global PADDING
     PADDING = {
