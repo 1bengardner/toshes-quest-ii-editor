@@ -26,6 +26,12 @@ def selectAll(event):
     elif event.widget.winfo_class() == "Text":
         event.widget.tag_add(SEL, 0.0, END)
 
+def findCharacterByName(data, name):
+    for mercenary in data.mercenaries + [data]:
+        if mercenary.NAME == name:
+            return mercenary
+    return None
+
 class EditorEntry(Entry):
     def __init__(self, *args, **kwargs):
         self.v = StringVar()
@@ -119,6 +125,7 @@ class StatWindow:
 
     def updateWidgets(self, character):
         setChildren(self.children, True)
+        self.name = character.NAME
         self.level.replace(character.level)
         self.strength.replace(character.strength)
         self.dexterity.replace(character.dexterity)
@@ -139,7 +146,7 @@ class StatWindow:
 
         with open(self.path, "r") as gameFile:
             character = pickle.load(gameFile)
-        dumpStats(character)
+        dumpStats(findCharacterByName(character, self.name))
         with open(self.path, "w") as gameFile:
             pickle.dump(character, gameFile)
         print "Saved stats."
@@ -778,12 +785,33 @@ class MainWindow:
         master.bind('<Control-Key-a>', selectAll)
         mainFrame = Frame(master, bg=COLOURS['DEFAULT_BG'], relief=SUNKEN, bd=4, padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
         mainFrame.grid()
-        nameFrame = Frame(mainFrame, bg=COLOURS['DEFAULT_BG'])
-        nameFrame.grid(columnspan=2, pady=PADDING['DEFAULT'])
+        nameFrame = Frame(mainFrame, bg=COLOURS['DEFAULT_BG'], pady=PADDING['DEFAULT'])
+        nameFrame.grid(columnspan=2)
         self.characterName = Label(nameFrame, text="Load a character. (Ctrl+O)", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         self.characterName.grid(row=0, column=0, ipadx=2)
-        statFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], text="Stats")
-        statFrame.grid(row=1, column=0, padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
+        portraitFrame = Frame(mainFrame, bg=COLOURS['DEFAULT_BG'])
+        portraitFrame.grid(row=0, column=0, padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
+        self.charVar = StringVar()
+        self.portraits = {}
+        for i, character in enumerate(["Toshe", "Qendresa", "Barrie"]):
+            rb = Radiobutton(
+                portraitFrame,
+                image=IMAGES[character.upper()],
+                variable=self.charVar,
+                value=character,
+                width=42,
+                height=64,
+                bg=COLOURS['DEFAULT_BG'],
+                selectcolor=COLOURS['DEFAULT_FG'],
+                indicatoron=0,
+                bd=4,
+                command=self.switchCharacter,
+                state=DISABLED
+            )
+            rb.grid(row=0, column=i)
+            self.portraits[character] = rb
+        self.statFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], text="Stats")
+        self.statFrame.grid(row=1, column=0, padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
         self.itemFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], text="Items")
         self.itemFrame.grid(row=1, column=1, padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
         self.vendorFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], text="Merchant Items")
@@ -792,7 +820,7 @@ class MainWindow:
         self.swapTextA = "Hidden Passage Vendor >>"
         self.vendorItemSwap = Button(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], text=self.swapTextA, command=self.swapInventories, state=DISABLED)
         self.vendorItemSwap.grid(row=0, column=1, sticky='E', padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
-        self.stats = StatWindow(statFrame)
+        self.stats = StatWindow(self.statFrame)
         self.items = ItemWindow(self.itemFrame)
         self.vendorItems = VendorWindow(self.vendorFrame)
         self.flags = FlagsWindow(master)
@@ -800,6 +828,12 @@ class MainWindow:
         self.canSaveAll = False
 
         master.protocol('WM_DELETE_WINDOW', lambda: self.release(master))
+
+    def switchCharacter(self):
+        with open(self.stats.path, "r") as gameFile:
+            character = pickle.load(gameFile)
+        self.stats.updateWidgets(findCharacterByName(character, self.charVar.get()))
+        self.statFrame.config(text="{name}'s Stats".format(name=self.charVar.get()))
 
     def createMenu(self, master):
         menubar = Menu(master)
@@ -823,24 +857,29 @@ class MainWindow:
         path = tkFileDialog.askopenfilename(initialdir = "/", title = "Select file", filetypes = (("Toshe's Quest Files", "*.tq"), ("All Files", "*.*")))
         with open(path, "r") as gameFile:
             character = pickle.load(gameFile)
-            self.characterName.config(relief=GROOVE, text=path.rsplit('/', 1)[-1])
-            self.stats.path = path
-            self.stats.updateWidgets(character)
-            self.items.path = path
-            self.items.updateWidgets(character)
-            self.vendorItems.path = path
-            self.vendorItems.updateWidgets(character)
-            if 'Buyback Items' in character.flags:
-                self.vendorItemSwap.config(state=NORMAL, bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
-            else:
-                self.vendorItemSwap.config(state=DISABLED, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
-                self.swapInventories(True)
-            self.flags.terminate()
-            self.flags.path = path
-            self.flags.updateWidgets(character)
-            self.fileMenu.entryconfig(1, state=NORMAL)
-            self.viewMenu.entryconfig(0, state=NORMAL)
-            self.canSaveAll = True
+        self.characterName.config(relief=GROOVE, text=path.rsplit('/', 1)[-1], font=("TkDefaultFont", 16))
+        unlockedPortraits = [mercenary.NAME for mercenary in character.mercenaries + [character]]
+        for portrait in self.portraits:
+            self.portraits[portrait].config(state=(NORMAL if portrait in unlockedPortraits else DISABLED))
+        self.charVar.set("Toshe")
+        self.stats.path = path
+        self.stats.updateWidgets(character)
+        self.switchCharacter()
+        self.items.path = path
+        self.items.updateWidgets(character)
+        self.vendorItems.path = path
+        self.vendorItems.updateWidgets(character)
+        if 'Buyback Items' in character.flags:
+            self.vendorItemSwap.config(state=NORMAL, bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
+        else:
+            self.vendorItemSwap.config(state=DISABLED, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+            self.swapInventories(True)
+        self.flags.terminate()
+        self.flags.path = path
+        self.flags.updateWidgets(character)
+        self.fileMenu.entryconfig(1, state=NORMAL)
+        self.viewMenu.entryconfig(0, state=NORMAL)
+        self.canSaveAll = True
 
     def save(self):
         if self.canSaveAll:
@@ -858,6 +897,9 @@ def init():
     IMAGES = {
         "EURO" : PhotoImage(file="images\\icons\\euro.gif"),
         "DEFAULT" : PhotoImage(file="images\\other\\empty.gif"),
+        "TOSHE" : PhotoImage(file="images\\other\\toshe.gif").zoom(3).subsample(4),
+        "QENDRESA" : PhotoImage(file="images\\areas\\pec\\11.gif").subsample(3),
+        "BARRIE" : PhotoImage(file="images\\areas\\pristina\\26.gif"),
     }
     global COLOURS
     COLOURS = {
