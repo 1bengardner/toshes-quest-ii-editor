@@ -321,10 +321,10 @@ class ItemWindow:
         self.damage.pack(side=LEFT)
 
         self.save = Button(infoFrame, text="Save", width=10, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
-        self.save.grid(row=5, columnspan=2, pady=8)
+        self.save.grid(row=5, columnspan=2, pady=(20, 0))
 
-        self.erase = Button(infoFrame, text="Erase", width=10, bg=COLOURS['DEFAULT_BG'], relief=FLAT, command=self.eraseItem)
-        self.erase.grid(row=5, columnspan=2, pady=8, sticky='E')
+        self.erase = Button(infoFrame, text="Delete", width=10, bg=COLOURS['DEFAULT_BG'], relief=FLAT, command=self.eraseItem)
+        self.erase.grid(row=5, columnspan=2, pady=(20, 0), sticky='E')
 
         self.children = itemFrame.winfo_children()
         setChildren(self.children, False)
@@ -528,9 +528,12 @@ class ItemWindow:
         self.items[self.itemVar.get()] = None
         self.buttons[self.itemVar.get()].config(image=IMAGES['DEFAULT'])
         self.selectItem()
+        self.saveData(True)
 
     def saveItem(self, index):
         def showError(customMessage=None):
+            if not self.image.winfo_viewable():
+                return
             errorTitle = "Item error"
             errorMessage = "Please enter a value for all item stats." if not customMessage else customMessage
             tkMessageBox.showerror(title=errorTitle, message=errorMessage)
@@ -592,8 +595,8 @@ class ItemWindow:
     def dumpItems(self, character):
         character.items = self.items
 
-    def saveData(self, saveAll=False):
-        if (self.itemVar.get() == -1 or not self.saveItem(self.itemVar.get())) and not saveAll:
+    def saveData(self, deleting=False):
+        if not deleting and (self.itemVar.get() == -1 or not self.saveItem(self.itemVar.get())):
             return
         with open(self.path, "r") as gameFile:
             character = pickle.load(gameFile)
@@ -842,9 +845,9 @@ class MainWindow:
     def save(self):
         if self.canSaveAll:
             self.stats.saveData()
-            self.items.saveData(True)
-            self.vendorItems.saveData(True)
             self.flags.saveData()
+            self.items.saveData()
+            self.vendorItems.saveData()
 
     def release(self, master):
         self.flags.terminate()
