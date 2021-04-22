@@ -405,6 +405,9 @@ class ItemWindow:
 
         imageWindow = Toplevel(master, bg=COLOURS['BLACK'])
         imageWindow.grab_set()
+        imageWindow.focus()
+        imageWindow.bind("<Control-w>", lambda _: imageWindow.destroy())
+        imageWindow.bind("<Escape>", lambda _: imageWindow.destroy())
         imageWindow.iconbitmap("images\\icons\\tq.ico")
         imageWindow.title(imageCategory+" Graphic Select")
         helpLabel = Label(imageWindow, text="Choose an item graphic from below.", bg=COLOURS['BLACK'], fg=COLOURS['DEFAULT_FG'])
