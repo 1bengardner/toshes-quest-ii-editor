@@ -787,7 +787,7 @@ class FlagsWindow:
         self.unsaved.grid()
 
     def addFlag(self):
-        if self.flagEntry.get() not in self.flags:
+        if self.flagEntry.get() != "" and self.flagEntry.get() not in self.flags:
             self.queryEntry.set("")
             self.createRadiobutton(self.pages[-1], self.flagEntry.get(), self.flagVar, self.deleteFlag)
             self.flags[self.flagEntry.get()] = True
