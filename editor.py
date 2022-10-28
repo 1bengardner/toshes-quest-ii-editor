@@ -92,38 +92,45 @@ class EditorText(Text):
 
 class StatWindow:
     def __init__(self, master):
-        statFrame = Frame(master, bg=COLOURS['DEFAULT_BG'])
-        statFrame.grid()
+        self.charFrame = LabelFrame(master, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], text="Stats")
+        self.charFrame.grid()
+        potionFrame = Frame(master, bg=COLOURS['DEFAULT_BG'])
+        potionFrame.grid()
 
-        levelLabel = Label(statFrame, text="Level", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        levelLabel = Label(self.charFrame, text="Level", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         levelLabel.grid(row=0, column=0)
-        self.level = EditorEntry(statFrame, width=2, onTextChanged=self.onStatModified, constraint="length,int")
+        self.level = EditorEntry(self.charFrame, width=2, onTextChanged=self.onStatModified, constraint="length,int")
         self.level.grid(row=0, column=1, sticky='E')
 
-        strengthLabel = Label(statFrame, text="Strength", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        strengthLabel = Label(self.charFrame, text="Strength", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         strengthLabel.grid(row=1, column=0)
-        self.strength = EditorEntry(statFrame, width=3, onTextChanged=self.onStatModified, constraint="length,int")
+        self.strength = EditorEntry(self.charFrame, width=3, onTextChanged=self.onStatModified, constraint="length,int")
         self.strength.grid(row=1, column=1, sticky='E')
 
-        dexterityLabel = Label(statFrame, text="Dexterity", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        dexterityLabel = Label(self.charFrame, text="Dexterity", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         dexterityLabel.grid(row=2, column=0)
-        self.dexterity = EditorEntry(statFrame, width=3, onTextChanged=self.onStatModified, constraint="length,int")
+        self.dexterity = EditorEntry(self.charFrame, width=3, onTextChanged=self.onStatModified, constraint="length,int")
         self.dexterity.grid(row=2, column=1, sticky='E')
 
-        wisdomLabel = Label(statFrame, text="Wisdom", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        wisdomLabel = Label(self.charFrame, text="Wisdom", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         wisdomLabel.grid(row=3, column=0)
-        self.wisdom = EditorEntry(statFrame, width=3, onTextChanged=self.onStatModified, constraint="length,int")
+        self.wisdom = EditorEntry(self.charFrame, width=3, onTextChanged=self.onStatModified, constraint="length,int")
         self.wisdom.grid(row=3, column=1, sticky='E')
 
-        eurosLabel = Label(statFrame, image=IMAGES['EURO'], bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        eurosLabel = Label(self.charFrame, image=IMAGES['EURO'], bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         eurosLabel.grid(row=4, column=0)
-        self.euros = EditorEntry(statFrame, width=6, onTextChanged=self.onStatModified, constraint="length,int")
+        self.euros = EditorEntry(self.charFrame, width=6, onTextChanged=self.onStatModified, constraint="length,int")
         self.euros.grid(row=4, column=1, sticky='E')
 
-        self.save = Button(statFrame, text="Save", width=10, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
-        self.save.grid(columnspan=2, pady=8)
+        potionLabel = Label(potionFrame, image=IMAGES['POTION'], bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        potionLabel.grid(row=3, column=0)
+        self.potions = EditorEntry(potionFrame, width=3, onTextChanged=self.onStatModified, constraint="length,int")
+        self.potions.grid(row=3, column=1, sticky='E', pady=16)
 
-        self.children = statFrame.winfo_children()
+        self.save = Button(master, text="Save", width=10, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
+        self.save.grid(columnspan=2)
+
+        self.children = self.charFrame.winfo_children()
         setChildren(self.children, False)
 
     def updateWidgets(self, character):
@@ -134,6 +141,7 @@ class StatWindow:
         self.dexterity.set(character.dexterity)
         self.wisdom.set(character.wisdom)
         self.euros.set(character.euros)
+        self.potions.set(character.potions)
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=DISABLED)
 
     def onStatModified(self, widget):
@@ -146,6 +154,7 @@ class StatWindow:
             character.dexterity = int(self.dexterity.get())
             character.wisdom = int(self.wisdom.get())
             character.euros = int(self.euros.get())
+            character.potions = int(self.potions.get())
 
         with open(self.path, "r") as gameFile:
             character = pickle.load(gameFile)
@@ -373,7 +382,7 @@ class ItemWindow:
                 self.resType.set(selected.ELEMENT)
 
             elif selected.CATEGORY == "Miscellaneous":
-                self.description.set(selected.INFORMATION.set("*", "\n"))
+                self.description.set(selected.INFORMATION.replace("*", "\n"))
                 # No easy way to check for Text widget modifications
                 self.save.config(text="Update", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=NORMAL)
                 self.erase.config(bg=COLOURS['DEFAULT_FG'])
@@ -626,7 +635,12 @@ class ItemWindow:
         with open(self.path, "w") as gameFile:
             pickle.dump(character, gameFile)
         print "Saved items."
-        self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], state=DISABLED)
+        if deleting:
+            return
+        if self.items[self.itemVar.get()].CATEGORY == "Miscellaneous":
+            self.save.config(text="Update")
+        else:
+            self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], state=DISABLED)
 
     def showError(self, message, title=None):
         self.error.config(text=message)
@@ -850,8 +864,8 @@ class MainWindow:
             )
             rb.grid(row=0, column=i)
             self.portraits[character] = rb
-        self.statFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], text="Stats")
-        self.statFrame.grid(row=1, column=0, padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
+        statFrame = Frame(mainFrame, bg=COLOURS['DEFAULT_BG'])
+        statFrame.grid(row=1, column=0)
         self.itemFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], text="Items")
         self.itemFrame.grid(row=1, column=1, padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
         self.vendorFrame = LabelFrame(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], text="Merchant Items")
@@ -860,7 +874,7 @@ class MainWindow:
         self.swapTextA = "Hidden Passage Vendor >>"
         self.vendorItemSwap = Button(mainFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], text=self.swapTextA, command=self.swapInventories, state=DISABLED)
         self.vendorItemSwap.grid(row=0, column=1, sticky='E', padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
-        self.stats = StatWindow(self.statFrame)
+        self.stats = StatWindow(statFrame)
         self.items = ItemWindow(self.itemFrame)
         self.vendorItems = VendorWindow(self.vendorFrame)
         self.flags = FlagsWindow(master)
@@ -872,7 +886,7 @@ class MainWindow:
         with open(self.stats.path, "r") as gameFile:
             character = pickle.load(gameFile)
         self.stats.updateWidgets(findCharacterByName(character, self.charVar.get()))
-        self.statFrame.config(text="{name}'s Stats".format(name=self.charVar.get()))
+        self.stats.charFrame.config(text="{name}'s Stats".format(name=self.charVar.get()))
 
     def createMenu(self, master):
         menubar = Menu(master)
@@ -934,6 +948,7 @@ def init():
     global IMAGES
     IMAGES = {
         "EURO" : PhotoImage(file="images\\icons\\euro.gif"),
+        "POTION" : PhotoImage(file="images\\icons\\potion.gif"),
         "DEFAULT" : PhotoImage(file="images\\other\\empty.gif"),
         "TOSHE" : PhotoImage(file="images\\other\\toshe.gif").zoom(3).subsample(4),
         "QENDRESA" : PhotoImage(file="images\\areas\\pec\\11.gif").subsample(3),
