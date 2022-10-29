@@ -662,7 +662,7 @@ class VendorWindow(ItemWindow):
         else:
             self.items = []
 
-class FlagsWindow:
+class EditWindow(object):
     def __init__(self, master):
         self.exiting = False
         self.init = False
@@ -687,59 +687,9 @@ class FlagsWindow:
             self.release()
 
     def updateWidgets(self, character):
-        def onQueryChanged(widget):
-            self.updateWidgets(character)
-
         if not self.init:
-            flagsWindow = Toplevel(self.master, bg=COLOURS['DEFAULT_FG'], relief=SUNKEN, bd=4)
-            self.window = flagsWindow
-            self.release()
-            flagsWindow.bind('<Control-Key-a>', selectAll)
-            flagsWindow.bind("<Control-s>", lambda _: self.save.invoke())
-            flagsWindow.bind("<Control-w>", lambda _: self.release())
-            flagsWindow.bind("<Escape>", lambda _: self.release())
-            flagsWindow.iconbitmap("images\\icons\\tq.ico")
-            flagsWindow.title("Flags")
-            flagsWindow.protocol('WM_DELETE_WINDOW', self.release)
-            mainFrame = Frame(flagsWindow, bg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
-            mainFrame.grid()
-            helpLabel = Label(mainFrame, text="Click on a flag to delete it.", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
-            helpLabel.grid(row=0, column=0)
-            entryFrame = Frame(mainFrame, bg=COLOURS['DEFAULT_FG'], relief=RIDGE, bd=2)
-            entryFrame.grid(row=0, column=0, sticky='W')
-            flagLabel = Label(entryFrame, text="New flag: ", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
-            flagLabel.pack(side=LEFT)
-            self.flagEntry = Entry(entryFrame)
-            self.flagEntry.pack(side=LEFT)
-            addButton = Button(entryFrame, text="Add", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], command=self.addFlag)
-            addButton.pack(side=LEFT)
-            self.flagEntry.bind("<Return>", lambda _: addButton.invoke())
-            queryFrame = Frame(mainFrame, bg=COLOURS['DEFAULT_FG'], relief=RIDGE, bd=2)
-            queryFrame.grid(row=0, column=0, sticky='E')
-            queryLabel = Label(queryFrame, text="Search: ", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
-            queryLabel.pack(side=LEFT)
-            self.queryEntry = EditorEntry(queryFrame, onTextChanged=onQueryChanged)
-            self.queryEntry.pack(side=LEFT)
-            saveFrame = Frame(mainFrame, bg=COLOURS['DEFAULT_FG'])
-            saveFrame.grid(row=2, column=0, sticky='SE')
-            self.unsaved = Label(saveFrame, text="You have unsaved changes.", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
-            self.unsaved.grid(row=0, column=0, padx=8)
-            self.unsaved.grid_remove()
-            self.save = Button(saveFrame, text="Saved", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=DISABLED, command=self.saveData)
-            self.save.grid(row=0, column=1)
-            self.flagsFrame = mainFrame
-            self.pages = []
-            self.pageFrame = Frame(self.flagsFrame, bg=COLOURS['DEFAULT_FG'])
-            self.pageFrame.grid(row=2, column=0, sticky='S')
-            prevButton = Button(self.pageFrame, text="<<", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], command=self.prevPage)
-            prevButton.pack(side=LEFT)
-            self.pageCount = Label(self.pageFrame, text="1/2", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
-            self.pageCount.pack(side=LEFT)
-            nextButton = Button(self.pageFrame, text=">>", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], command=self.nextPage)
-            nextButton.pack(side=LEFT)
-            self.init = True
+            self.initWindow(queryChangedCallback)
 
-        self.flags = character.flags
         self.rows = 15
         self.columns = 4
         self.pageFrame.grid_remove()
@@ -747,43 +697,96 @@ class FlagsWindow:
             page.destroy()
         self.pages = []
         self.pageView = 1
-        master = self.createFlagPanel()
+        master = self.createPanel()
         self.pages.append(master)
         self.count = 0
-        self.flagVar = StringVar()
-        self.flagButtons = {}
-        for flag, val in self.flags.items():
-            if val is True and self.queryEntry.get().lower() in flag.lower():
-                master = self.createRadiobutton(master, flag, self.flagVar, self.deleteFlag)
+        self.var = StringVar()
+        self.radiobuttons = {}
+        self.initRadioButtons(master)
+        
+    def initWindow(self, character):
+        mainWindow = Toplevel(self.master, bg=COLOURS['DEFAULT_FG'], relief=SUNKEN, bd=4)
+        self.window = mainWindow
+        self.release()
+        mainWindow.bind('<Control-Key-a>', selectAll)
+        mainWindow.bind("<Control-s>", lambda _: self.save.invoke())
+        mainWindow.bind("<Control-w>", lambda _: self.release())
+        mainWindow.bind("<Escape>", lambda _: self.release())
+        mainWindow.iconbitmap("images\\icons\\tq.ico")
+        mainWindow.protocol('WM_DELETE_WINDOW', self.release)
+        mainWindow.title("Edit Window")
+        self.mainFrame = Frame(mainWindow, bg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
+        self.mainFrame.grid()
+        queryFrame = Frame(self.mainFrame, bg=COLOURS['DEFAULT_FG'], relief=RIDGE, bd=2)
+        queryFrame.grid(row=0, column=0, sticky='E')
+        queryLabel = Label(queryFrame, text="Search: ", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
+        queryLabel.pack(side=LEFT)
+        def onQueryChanged(widget):
+            self.updateWidgets(character)
+        self.queryEntry = EditorEntry(queryFrame, onTextChanged=onQueryChanged)
+        self.queryEntry.pack(side=LEFT)
+        saveFrame = Frame(self.mainFrame, bg=COLOURS['DEFAULT_FG'])
+        saveFrame.grid(row=2, column=0, sticky='SE')
+        self.unsaved = Label(saveFrame, text="You have unsaved changes.", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
+        self.unsaved.grid(row=0, column=0, padx=8)
+        self.unsaved.grid_remove()
+        self.save = Button(saveFrame, text="Saved", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=DISABLED, command=self.saveData)
+        self.save.grid(row=0, column=1)
+        self.flagsFrame = self.mainFrame
+        self.pages = []
+        self.pageFrame = Frame(self.flagsFrame, bg=COLOURS['DEFAULT_FG'])
+        self.pageFrame.grid(row=2, column=0, sticky='S')
+        prevButton = Button(self.pageFrame, text="<<", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], command=self.prevPage)
+        prevButton.pack(side=LEFT)
+        self.pageCount = Label(self.pageFrame, text="1/2", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
+        self.pageCount.pack(side=LEFT)
+        nextButton = Button(self.pageFrame, text=">>", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], command=self.nextPage)
+        nextButton.pack(side=LEFT)
+        self.init = True
 
-    def createFlagPanel(self):
+    def saveData(self):
+        if not self.init or self.save['state'] == DISABLED:
+            return
+        with open(self.path, "r") as gameFile:
+            character = pickle.load(gameFile)
+        character.flags = self.flags
+        with open(self.path, "w") as gameFile:
+            pickle.dump(character, gameFile)
+        print "Saved flags."
+        self.save.config(text="Saved", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=DISABLED)
+        self.unsaved.grid_remove()
+        
+    def initRadioButtons(self, panel):
+        raise NotImplementedError()
+
+    def createPanel(self):
         master = Frame(self.flagsFrame, bg=COLOURS['DEFAULT_FG'], width=900, height=450, pady=8)
         master.grid(row=1, column=0)
         master.grid_propagate(False)
         return master
-
-    def createRadiobutton(self, master, flag, var, cmd):
+        
+    def createGenericRadiobutton(self, master, txt, var, val, cmd):
         rb = Radiobutton(
             master,
-            text=flag + " x",
+            text=txt,
             variable=var,
-            value=flag,
+            value=val,
             indicatoron=0,
             command=cmd
         )
+        rb.config(bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
         rb.grid(row=self.count%self.rows, column=self.count//self.rows, sticky='W', padx=PADDING['DEFAULT'])
-        rb.config(bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], activebackground=COLOURS['ERROR_BG'])
-        self.flagButtons[flag] = rb
+        self.radiobuttons[val] = rb
         self.count += 1
         if self.count >= self.rows*self.columns:
-            master = self.createFlagPanel()
+            master = self.createPanel()
             master.grid_remove()
             self.pages.append(master)
             self.count = 0
             if len(self.pages) == 2:
                 self.pageFrame.grid()
             self.pageCount.config(text=str(self.pageView) + "/" + str(len(self.pages)))
-        return master
+        return rb, master
 
     def nextPage(self):
         self.swapPage(1)
@@ -797,31 +800,95 @@ class FlagsWindow:
         self.pages[self.pageView-1].grid()
         self.pageCount.config(text=str(self.pageView) + "/" + str(len(self.pages)))
 
+class FlagsWindow(EditWindow):
+    def updateWidgets(self, character):
+        self.flags = character.flags
+        if not self.init:
+            super(FlagsWindow, self).initWindow(character)
+            self.initWindow()
+        super(FlagsWindow, self).updateWidgets(character)
+            
+    def initWindow(self):
+        entryFrame = Frame(self.mainFrame, bg=COLOURS['DEFAULT_FG'], relief=RIDGE, bd=2)
+        entryFrame.grid(row=0, column=0, sticky='W')
+        flagLabel = Label(entryFrame, text="New flag: ", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
+        flagLabel.pack(side=LEFT)
+        self.flagEntry = Entry(entryFrame)
+        self.flagEntry.pack(side=LEFT)
+        addButton = Button(entryFrame, text="Add", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], command=self.addFlag)
+        addButton.pack(side=LEFT)
+        self.flagEntry.bind("<Return>", lambda _: addButton.invoke())
+        helpLabel = Label(self.mainFrame, text="Click on a flag to delete it.", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
+        helpLabel.grid(row=0, column=0)
+        self.window.title("Flags")
+
+    def initRadioButtons(self, panel):
+        for flag, val in self.flags.items():
+            if val is True and self.queryEntry.get().lower() in flag.lower():
+                panel = self.createRadiobutton(panel, flag, self.var, self.deleteFlag)
+
+    def createRadiobutton(self, master, flag, var, cmd):
+        rb, master = self.createGenericRadiobutton(
+            master,
+            flag + " x",
+            var,
+            flag,
+            cmd)
+        rb.config(activebackground=COLOURS['ERROR_BG'])
+        return master
+
     def deleteFlag(self):
-        del self.flags[self.flagVar.get()]
-        self.flagButtons[self.flagVar.get()].destroy()
+        del self.flags[self.var.get()]
+        self.radiobuttons[self.var.get()].destroy()
         self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
         self.unsaved.grid()
 
     def addFlag(self):
         if self.flagEntry.get() != "" and self.flagEntry.get() not in self.flags:
             self.queryEntry.set("")
-            self.createRadiobutton(self.pages[-1], self.flagEntry.get(), self.flagVar, self.deleteFlag)
+            self.createRadiobutton(self.pages[-1], self.flagEntry.get(), self.var, self.deleteFlag)
             self.flags[self.flagEntry.get()] = True
             self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
             self.unsaved.grid()
 
-    def saveData(self):
-        if not self.init or self.save['state'] == DISABLED:
-            return
-        with open(self.path, "r") as gameFile:
-            character = pickle.load(gameFile)
-        character.flags = self.flags
-        with open(self.path, "w") as gameFile:
-            pickle.dump(character, gameFile)
-        print "Saved flags."
-        self.save.config(text="Saved", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=DISABLED)
-        self.unsaved.grid_remove()
+class KillsWindow(EditWindow):
+    def __init__(self, master):
+        super(KillsWindow, self).__init__(master)
+        self.killsKey = "Kills"
+
+    def updateWidgets(self, character):
+        self.flags = character.flags
+        if not self.init:
+            super(KillsWindow, self).initWindow(character)
+            self.initWindow()
+        super(KillsWindow, self).updateWidgets(character)
+        
+    def initWindow(self):
+        entryFrame = Frame(self.mainFrame, bg=COLOURS['DEFAULT_FG'], relief=RIDGE, bd=2)
+        entryFrame.grid(row=0, column=0, sticky='W')
+        enemyLabel = Label(entryFrame, text="New enemy: ", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
+        enemyLabel.pack(side=LEFT)
+        self.enemyEntry = Entry(entryFrame)
+        self.enemyEntry.pack(side=LEFT)
+        addButton = Button(entryFrame, text="Add", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], command=self.addEnemy)
+        addButton.pack(side=LEFT)
+        self.enemyEntry.bind("<Return>", lambda _: addButton.invoke())
+        helpLabel = Label(self.mainFrame, text="Clicking on a monster name currently does nothing.", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
+        helpLabel.grid(row=0, column=0)
+        self.window.title("Kills")
+
+    def initRadioButtons(self, panel):
+        for enemy, killCount in self.flags[self.killsKey].items():
+            if self.queryEntry.get().lower() in enemy.lower():
+                _, panel = self.createGenericRadiobutton(panel, "%s: %s" % (enemy, killCount), self.var, enemy, lambda : 0)
+
+    def addEnemy(self):
+        if self.enemyEntry.get() != "" and self.enemyEntry.get() not in self.flags[self.killsKey]:
+            self.queryEntry.set("")
+            self.createGenericRadiobutton(self.pages[-1], "%s: %s" % (self.enemyEntry.get(), 1), self.var, self.enemyEntry.get(), lambda : 0)
+            self.flags[self.killsKey][self.enemyEntry.get()] = 1
+            self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
+            self.unsaved.grid()
 
 class MainWindow:
     def swapInventories(self, revert=False):
@@ -878,6 +945,7 @@ class MainWindow:
         self.items = ItemWindow(self.itemFrame)
         self.vendorItems = VendorWindow(self.vendorFrame)
         self.flags = FlagsWindow(master)
+        self.kills = KillsWindow(master)
         self.createMenu(master)
 
         master.protocol('WM_DELETE_WINDOW', lambda: self.release(master))
@@ -904,6 +972,7 @@ class MainWindow:
 
         self.viewMenu = Menu(menubar, tearoff=False)
         self.viewMenu.add_command(label="Flags", command=self.flags.show, state=DISABLED)
+        self.viewMenu.add_command(label="Kills", command=self.kills.show, state=DISABLED)
         menubar.add_cascade(label="Edit", menu=self.viewMenu)
 
     def load(self):
@@ -930,18 +999,25 @@ class MainWindow:
         self.flags.terminate()
         self.flags.path = path
         self.flags.updateWidgets(character)
+        self.kills.terminate()
+        self.kills.path = path
+        self.kills.updateWidgets(character)
         self.fileMenu.entryconfig(1, state=NORMAL)
         self.viewMenu.entryconfig(0, state=NORMAL)
+        self.viewMenu.entryconfig(1, state=NORMAL)
 
     def save(self):
         self.stats.save.invoke()
         if self.flags.init:
             self.flags.save.invoke()
+        if self.kills.init:
+            self.kills.save.invoke()
         self.items.save.invoke()
         self.vendorItems.save.invoke()
 
     def release(self, master):
         self.flags.terminate()
+        self.kills.terminate()
         master.destroy()
 
 def init():
