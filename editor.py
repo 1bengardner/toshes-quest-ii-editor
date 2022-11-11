@@ -9,6 +9,7 @@ from TUAShield import Shield
 from TUAArmour import Armour
 from TUAMiscellaneousItem import MiscellaneousItem
 from TUAWeapon import Weapon
+import converter
 
 def setChildren(children, enabled):
     for child in children:
@@ -974,9 +975,9 @@ class MainWindow:
         master.config(menu=menubar)
 
         self.fileMenu = Menu(menubar, tearoff=False)
-        self.fileMenu.add_command(label="Open...", command=self.load, accelerator="Ctrl+O")
+        self.fileMenu.add_command(label="Open...", command=self.openLoadDialog, accelerator="Ctrl+O")
         self.fileMenu.add_command(label="Save All", command=self.save, state=DISABLED, accelerator="Ctrl+S")
-        master.bind("<Control-o>", lambda _: self.load())
+        master.bind("<Control-o>", lambda _: self.openLoadDialog())
         master.bind("<Control-s>", lambda _: self.save())
         master.bind("<Control-w>", lambda _: master.destroy())
         self.fileMenu.insert_separator(2)
@@ -988,33 +989,48 @@ class MainWindow:
         self.viewMenu.add_command(label="Kills", command=self.kills.show, state=DISABLED)
         menubar.add_cascade(label="Edit", menu=self.viewMenu)
 
-    def load(self):
+    def openLoadDialog(self):
         path = tkFileDialog.askopenfilename(initialdir = "/", title = "Select file", filetypes = (("Toshe's Quest Files", "*.tq"), ("All Files", "*.*")))
+        if path:
+            self.load(path)
+
+    def load(self, path):
         with open(path, "r") as gameFile:
             character = pickle.load(gameFile)
-        self.characterName.config(relief=GROOVE, text=path.rsplit('/', 1)[-1], font=("TkDefaultFont", 16))
-        unlockedPortraits = [mercenary.NAME for mercenary in [character] + (character.mercenaries if hasattr(character, "mercenaries") else [])]
-        for portrait in self.portraits:
-            self.portraits[portrait].config(state=(NORMAL if portrait in unlockedPortraits else DISABLED))
-        self.charVar.set("Toshe")
-        self.stats.path = path
-        self.stats.updateWidgets(character)
-        self.switchCharacter()
-        self.items.path = path
-        self.items.updateWidgets(character)
-        self.vendorItems.path = path
-        self.vendorItems.updateWidgets(character)
-        if 'Buyback Items' in character.flags:
-            self.vendorItemSwap.config(state=NORMAL, bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
-        else:
-            self.vendorItemSwap.config(state=DISABLED, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
-            self.swapInventories(True)
-        self.flags.terminate()
-        self.flags.path = path
-        self.flags.updateWidgets(character)
-        self.kills.terminate()
-        self.kills.path = path
-        self.kills.updateWidgets(character)
+        try:
+            self.characterName.config(relief=GROOVE, text=path.rsplit('/', 1)[-1], font=("TkDefaultFont", 16))
+            unlockedPortraits = [mercenary.NAME for mercenary in [character] + (character.mercenaries if hasattr(character, "mercenaries") else [])]
+            for portrait in self.portraits:
+                self.portraits[portrait].config(state=(NORMAL if portrait in unlockedPortraits else DISABLED))
+            self.charVar.set("Toshe")
+            self.stats.path = path
+            self.stats.updateWidgets(character)
+            self.switchCharacter()
+            self.items.path = path
+            self.items.updateWidgets(character)
+            self.vendorItems.path = path
+            self.vendorItems.updateWidgets(character)
+            if 'Buyback Items' in character.flags:
+                self.vendorItemSwap.config(state=NORMAL, bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
+            else:
+                self.vendorItemSwap.config(state=DISABLED, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+                self.swapInventories(True)
+            self.flags.terminate()
+            self.flags.path = path
+            self.flags.updateWidgets(character)
+            self.kills.terminate()
+            self.kills.path = path
+            self.kills.updateWidgets(character)
+        except:
+            print "Unable to read file. Attempting version upgrade to 2.0...",
+            with open(path, "r") as gameFile:
+                success = converter.update(gameFile, path) is True
+                if success:
+                    print "Done!"
+                else:
+                    print "Unable to upgrade."
+            if success:
+                self.load(path)
         self.fileMenu.entryconfig(1, state=NORMAL)
         self.viewMenu.entryconfig(0, state=NORMAL)
         self.viewMenu.entryconfig(1, state=NORMAL)
