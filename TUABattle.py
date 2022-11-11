@@ -2,7 +2,7 @@
 File: TUABattle.py
 Author: Ben Gardner
 Created: March 24, 2013
-Revised: June 4, 2020
+Revised: November 4, 2022
 """
 
 
@@ -23,6 +23,7 @@ class Battle(object):
         self.DEFEND_BLOCK_VALUE = 25
         self.PROTECTOR_BLOCK_VALUE = 5
         self.view = "battle"
+        self.sounds = []
         self.text = ""
         self.mainCharacter = character
         self.auxiliaryCharacters = [
@@ -34,7 +35,6 @@ class Battle(object):
             self.charactersFlags[character.NAME] = set()
 
         # HP Alerts to indicate when low HP text should be displayed
-        self.hpAlert0 = True
         self.hpAlert1 = False
         self.hpAlert2 = False
         self.hpAlert3 = False
@@ -116,13 +116,15 @@ class Battle(object):
 
     def actions(self, newActions=None):
         actions = {'view': self.view,
-                   'text': "\n"+self.text.strip()}
+                   'text': "\n"+self.text.strip(),
+                   'sounds': self.sounds}
         if newActions:
             actions.update(newActions)
         return actions
 
     def attack(self, skill):
         """Make Toshe attack the enemy with a specified skill."""
+        self.sounds = []
         self.text = ""
         if self.mainCharacter.equippedWeapon.CATEGORY not in\
            skill.PERMITTED_WEAPONS:
@@ -170,6 +172,7 @@ class Battle(object):
 
         If he is unsuccessful at fleeing, the battle will continue and the enemy
         will attack."""
+        self.sounds = []
         self.text = ""
         if not self.enemy.FLEEABLE:
             self.text += "There's nowhere to run."
@@ -354,11 +357,21 @@ class Battle(object):
                                   " from blocking.\n") % (defender.NAME,
                                                           epBoost)
             else:
+                bruhMoment = False
                 if critical:
                     if damage:
+                        if ( self.mainCharacter.hasItem("Brummo Mint") and
+                             attacker == self.mainCharacter and
+                             skill.NAME == "Attack" and
+                             not self.enemy.UNIQUE):
+                            bruhMoment = True
+                            damage = defender.hp
+                            self.mainCharacter.removeItem(
+                                self.mainCharacter.indexOfItem("Brummo Mint"))
                         self.text += "Critical strike! "
                     elif healing:
                         self.text += "Critical heal! "
+
                 if damage is not None and healing is not None:
                     self.text += (attacker.NAME+" "+skill.TEXT+" "+
                                   defender.NAME+
@@ -374,6 +387,9 @@ class Battle(object):
                                   ", healing "+str(int(healing))+" HP.\n")
                 else:
                     self.text += (attacker.NAME+" "+skill.TEXT+".\n")
+                    
+                if bruhMoment:
+                    self.text += ("\nToshe: That was a Brummo Mint.\n")
 
                 for stat, value in skill.USER_EFFECTS.items():                        
                     if value >= 0:
@@ -456,6 +472,23 @@ class Battle(object):
                         defenderFlags.add("Burning")
                         defenderFlags.discard("Frozen")
                         self.burnDamage = damage/4
+
+            # Make sounds
+            if not (miss or blocked):
+                if damage is not None and int(damage) > 0:
+                    if attacker == self.mainCharacter:
+                        self.sounds.append("Deal Damage")
+                    elif defender == self.mainCharacter:
+                        self.sounds.append("Take Damage")
+                elif healing is not None and int(healing) > 0 and attacker == self.mainCharacter:
+                    self.sounds.append("Heal")
+                if (damage is not None and int(damage) > 0 or healing is not None and int(healing) > 0) and critical:
+                    if attacker == self.mainCharacter:
+                        self.sounds.append("Critical Strike")
+                    elif defender == self.mainCharacter:
+                        self.sounds.append("Critical Injury")
+            if blocked and not miss and defender == self.mainCharacter:
+                self.sounds.append("Block")
 
         # Do actions associated with flags attached to the attacker
         self.doFlagActions(attacker, attackerFlags)
@@ -784,24 +817,25 @@ class Battle(object):
             self.hpAlert3 = True
             self.hpAlert2 = True
             self.hpAlert1 = True
-            self.hpAlert0 = False
+            self.sounds.append("Low HP")
+            self.sounds.append("Low HP")
+            self.sounds.append("Low HP")
 
         elif (self.mainCharacter.hp < self.mainCharacter.maxHp/10) and\
              not self.hpAlert2:
             self.text += "Toshe: My heart..."
             self.hpAlert2 = True
             self.hpAlert1 = True
-            self.hpAlert0 = False
+            self.sounds.append("Low HP")
+            self.sounds.append("Low HP")
 
-        elif (self.mainCharacter.hp < self.mainCharacter.maxHp/5) and\
+        elif (self.mainCharacter.hp < self.mainCharacter.maxHp/4) and\
              not self.hpAlert1:
             self.text += "Toshe: I'm in pain!"
             self.hpAlert1 = True
-            self.hpAlert0 = False
+            self.sounds.append("Low HP")
 
-        elif (self.mainCharacter.hp > self.mainCharacter.maxHp/5) and\
-             not self.hpAlert0:
-            self.hpAlert0 = True
+        elif (self.mainCharacter.hp >= self.mainCharacter.maxHp/4):
             self.hpAlert1 = False
             self.hpAlert2 = False
             self.hpAlert3 = False
@@ -883,6 +917,7 @@ class Battle(object):
             character.updateStats()
         if self.mainCharacter.isDead():
             self.view = "game over"
+            self.sounds.append("Dead")
         elif self.enemy.isDead():
             if self.enemy.DEATH_HP > 0:
                 self.text += ("\n"+self.enemy.NAME+" surrenders!\n")
@@ -934,11 +969,13 @@ class Battle(object):
             self.mainCharacter.flags['Kills'][self.enemy.IDENTIFIER] += 1
             if hasattr(self.mainCharacter, 'specialization'):
                 self.mainCharacter.sp += 1
+            self.sounds.append("Kill")
         elif (self.coliseumMode and
               self.mainCharacter.hp <= self.CHARACTER_DEATH_HP):
             self.text += "Toshe surrenders!"
         else:
             self.text += "You flee from battle."
+            self.sounds.append("Flee")
 
     def checkDroppedItem(self):
         """Checks if the enemy left behind an item upon death.
@@ -959,7 +996,7 @@ class Battle(object):
         probabilities.
         """
         if fixed:
-            random.seed(self.mainCharacter.seed2)
+            random.seed(self.mainCharacter.seed2 + self.enemy.IDENTIFIER)
         randomNumber = self.roll()
         chanceCounter = 0
         for element in probabilities:

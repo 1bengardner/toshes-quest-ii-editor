@@ -5,7 +5,7 @@
 File: Toshe's Quest II.py
 Author: Ben Gardner
 Created: December 25, 2012
-Revised: June 7, 2020
+Revised: November 8, 2022
 """
 
  
@@ -17,14 +17,15 @@ from TUADialog import OpenFileDialog
 from TUAStatics import Static
 import random
 from datetime import datetime
+import pickle
 
 
 class Window:
     """Contains the game window."""
 
     def __init__(self, master):
-        gameFrame = Frame(master, bg=DEFAULT_BG, relief=SUNKEN, bd=4)
-        gameFrame.grid(row=0)
+        self.gameFrame = Frame(master, bg=DEFAULT_BG, relief=SUNKEN, bd=4)
+        self.gameFrame.grid(row=0)
         
         self.levelUpFrame = Frame(master, bg=LEVEL_UP_BG, relief=RIDGE, bd=10)
         self.levelUpFrame.grid(row=0)
@@ -83,7 +84,7 @@ class Window:
         self.newSkillLabelTop.grid(row=0, sticky=N)
         self.newSkillLabelTop.bind("<Button-1>", self.removeNewSkillFrame)
         
-        self.makeChildren(gameFrame)
+        self.makeChildren(self.gameFrame)
 
     def makeChildren(self, master):
         self.topFrame = TopFrame(master)
@@ -280,6 +281,7 @@ class TopLeftFrame:
             interfaceActions = main.equipItem()
             window.bottomFrame.bottomRightFrame.clickBackButton()
             updateInterface(interfaceActions)
+        main.sound.playSound(main.sound.sounds['Equip'])
         
     def clickSellButton(self):
         main.sell(self.v1.get())
@@ -385,9 +387,30 @@ class TopCenterFrame:
         self.makeFrameElements(frameD)
 
     def makeFrameElements(self, master):
+        self.playMusic = BooleanVar(value=True)
+        self.musicButton = Checkbutton(master, indicatoron=False, bg=DEFAULT_BG,
+                                     relief=SUNKEN, image=musicImage,
+                                     variable=self.playMusic,
+                                     command=main.sound.muteMusic)
+        self.musicButton.grid(row=0, padx=16, sticky=W)
+        self.playSfx = BooleanVar(value=True)
+        self.sfxButton = Checkbutton(master, indicatoron=False, bg=DEFAULT_BG,
+                                     relief=SUNKEN, image=sfxImage,
+                                     variable=self.playSfx,
+                                     command=main.sound.muteSfx)
+        try:
+            with open("preferences.tqp", "r") as preferencesFile:
+                preferences = pickle.load(preferencesFile)
+                if not preferences.musicOn:
+                    self.musicButton.invoke()
+                if not preferences.sfxOn:
+                    self.sfxButton.invoke()
+        except IOError:
+            pass
+        self.sfxButton.grid(row=0, padx=40, sticky=W)
         self.titleLabel = Label(master, text="Toshe's Quest II", font=font6,
                                 bg=DEFAULT_BG, bd=0)
-        self.titleLabel.grid(pady=6)
+        self.titleLabel.grid(row=0, pady=6)
         self.showMap = BooleanVar()
         self.mapButton = Checkbutton(master, indicatoron=False, bg=DEFAULT_BG,
                                      relief=SUNKEN, image=mapImage,
@@ -442,8 +465,6 @@ class TopCenterFrame:
     def updateMapVisibility(self, event=None):
         main.character.flags['Config']['Automap On'] = self.showMap.get()
         if self.showMap.get():
-            self.areaButton.grid_remove()
-            self.map.grid()
             self.updateMap()
         else:
             self.areaButton.grid()
@@ -464,7 +485,12 @@ class TopCenterFrame:
             
             self.map.dtag(self.cells[row][col], "dirty")
             
-            if (x, y) in spots:
+            if (x, y) in spots and (
+                0 <= x-1 < len(areaSpots[0]) and areaSpots[y][x-1] or
+                0 <= y-1 < len(areaSpots) and areaSpots[y-1][x] or
+                0 <= x+1 < len(areaSpots[0]) and areaSpots[y][x+1] or
+                0 <= y+1 < len(areaSpots) and areaSpots[y+1][x]
+                ):
                 config(self.cells[row][col], fill=spotColor, width=1,
                        activedash=(2, 4), activeoutline=markColor)
             elif (((x-1, y) in spots and
@@ -496,6 +522,26 @@ class TopCenterFrame:
             updateCell(row, col-1, y, x-1)
             updateCell(row, col+1, y, x+1)
         
+        # Set up var nicknames
+        areaSpots = main.currentArea.spots
+        spots = main.character.flags['Discovered Areas'][main.currentArea.name]
+        markedSpots = main.character.flags['Marked Areas'][main.currentArea.name]
+        config = self.map.itemconfig
+        # Early return if in an enclosed space
+        if not (
+            0 <= main.x-1 < len(areaSpots[0]) and areaSpots[main.y][main.x-1] or
+            0 <= main.y-1 < len(areaSpots) and areaSpots[main.y-1][main.x] or
+            0 <= main.x+1 < len(areaSpots[0]) and areaSpots[main.y][main.x+1] or
+            0 <= main.y+1 < len(areaSpots) and areaSpots[main.y+1][main.x]
+            ):
+            self.areaButton.grid()
+            self.map.grid_remove()
+            return
+        else:
+            self.areaButton.grid_remove()
+            self.map.grid()
+        
+        # Set up colors
         markValue = -32
         spotColor = MAP_BG
         mapColor = MAP_BG
@@ -509,12 +555,6 @@ class TopCenterFrame:
             if len(newHexColorValue) == 1:
                 newHexColorValue = "0" + newHexColorValue
             markColor += newHexColorValue
-        
-        spots = main.character.flags['Discovered Areas'][main.currentArea.name]
-        markedSpots = main.character.flags['Marked Areas'][main.currentArea.name]
-        areaSpots = main.currentArea.spots
-        config = self.map.itemconfig
-        
         self.map['bg'] = mapColor
         self.clearMap(mapColor)
         self.map.addtag_all("dirty")
@@ -534,13 +574,15 @@ class TopCenterFrame:
                                   main.y + i - self.CENTER_CELL[1]))
                     self.updateMap()
                     requireExitConfirmation(True)
+                    main.sound.playSound(main.sound.sounds['Mark Map'])
                     return
 
     def changeTitle(self, newTitle):
-        self.titleLabel['font'] = font6 if len(newTitle) < 23 else font4
+        self.titleLabel['font'] = font6 if len(newTitle) < 21 else font4
         self.titleLabel['text'] = newTitle
 
     def openFile(self):
+        main.sound.playSound(main.sound.sounds['Open Dialog'])
         d = OpenFileDialog(root, "Start Game")
         if not hasattr(d, 'entryValue'):
             window.bottomFrame.bottomLeftFrame.insertOutput(
@@ -550,21 +592,22 @@ class TopCenterFrame:
             self.loadFile(d.entryValue)
         except IOError:
             self.createFile(d.entryValue)
-        # except AttributeError:
-            # window.bottomFrame.bottomLeftFrame.insertOutput(
-                # d.entryValue +
-                # ", some vital information is missing from your file." +
-                # "\nPerhaps this can be remedied with a conversion.")
-        # except (EOFError, ValueError, KeyError, IndexError, ImportError):
-            # window.bottomFrame.bottomLeftFrame.insertOutput(
-                # d.entryValue +
-                # ", your file is completely garbled! This is quite unfortunate.")
-        # except ImportError:
-            # window.bottomFrame.bottomLeftFrame.insertOutput(
-                # "I cannot read this file at all! What language is this?")
+        except AttributeError:
+            window.bottomFrame.bottomLeftFrame.insertOutput(
+                d.entryValue +
+                ", some vital information is missing from your file." +
+                "\nPerhaps this can be remedied with a conversion.")
+        except (EOFError, ValueError, KeyError, IndexError, ImportError):
+            window.bottomFrame.bottomLeftFrame.insertOutput(
+                d.entryValue +
+                ", your file is completely garbled! This is quite unfortunate.")
+        except ImportError:
+            window.bottomFrame.bottomLeftFrame.insertOutput(
+                "I cannot read this file at all! What language is this?")
 
 
     def saveFile(self):
+        main.sound.playSound(main.sound.sounds['Open Dialog'])
         if tkMessageBox.askokcancel("Save Game", "Do you want to save?",
                                     parent=root):
             main.saveGame()
@@ -584,15 +627,20 @@ class TopCenterFrame:
         self.startGame(name)
         
     def startGame(self, name):
+        stateChanged = False
+        
         window.bottomFrame.bottomLeftFrame.insertTimestamp(True)
+        
+        interfaceActions = main.getLoginEvents()
+        if interfaceActions is not None:
+            updateInterface(interfaceActions)
+            stateChanged = True
         
         interfaceActions = main.getInterfaceActions(justFought=True)
         updateInterface(interfaceActions)
         
         self.mapButton['state'] = NORMAL
         self.mapButton.grid()
-        window.topFrame.topRightFrame.logMovement.set(
-            main.character.flags['Config']['Log Movement'])
         if main.character.flags['Config']['Automap On'] != self.showMap.get():
             self.mapButton.invoke()
         self.updateMapVisibility()
@@ -612,7 +660,7 @@ class TopCenterFrame:
         
         root.title("Toshe's Quest II | "+name)
         
-        requireExitConfirmation(False)
+        requireExitConfirmation(stateChanged)
         
 class TopRightFrame:
     """Contains frames for other stats, enemy stats and store items
@@ -751,32 +799,14 @@ class TopRightFrame:
                                         relief=GROOVE)
         self.weaponElementLabel.grid(row=9, columnspan=5, sticky=E+W, ipady=3)
 
-        self.logMovement = IntVar()
-        self.logMovement.set(1)
-        self.toggleMovementCheck = Checkbutton(self.otherStats,
-                                               text="Log movement",
-                                               variable=self.logMovement,
-                                               bg=DEFAULT_BG,
-                                               font=font2, bd=0,
-                                               command=\
-                                               self.toggleConfigLogMovement)
-        self.toggleMovementCheck.grid(row=10, columnspan=4, sticky=W)
-
         self.potionButton = Button(self.otherStats, image=potionImage,
                                    text="104", font=font2,
-                                   fg=WHITE, activeforeground=WHITE, bg=BUTTON_BG,
-                                   command=self.usePotion, compound=CENTER)
+                                   fg=WHITE, activeforeground=WHITE,
+                                   bg=BUTTON_BG, command=self.usePotion,
+                                   compound=CENTER, state=DISABLED)
         self.potionButton.grid(row=10, column=3, columnspan=2, sticky=E)
         self.potionButton.bind_all('p', self.usePotion)
         self.potionButton.bind_all('P', self.usePotion)
-
-        # self.markButton = Button(self.otherStats,
-                                # text="Mark/Unmark Map",
-                                # font=font2,
-                                # fg=BUTTON_FG,
-                                # bg=BUTTON_BG,
-                                # command=self.clickMarkMapButton)
-        # self.markButton.grid(row=11, columnspan=5, sticky=E+W)
 
         self.vBorderLabel1 = Label(self.otherStats, image=vBorderImage1,
                                   bg=DEFAULT_BG, bd=0)
@@ -858,30 +888,33 @@ class TopRightFrame:
     def increaseStrength(self):
         main.character.strength += 1
         main.character.statPoints -= 1
+        main.sound.playSound(main.sound.sounds['Increase Stat'])
         self.updateOtherStats()
         window.topFrame.topLeftFrame.updateInventory()
 
     def increaseDexterity(self):
         main.character.dexterity += 1
         main.character.statPoints -= 1
+        main.sound.playSound(main.sound.sounds['Increase Stat'])
         self.updateOtherStats()
         window.topFrame.topLeftFrame.updateInventory()
 
     def increaseWisdom(self):
         main.character.wisdom += 1
         main.character.statPoints -= 1
+        main.sound.playSound(main.sound.sounds['Increase Stat'])
         self.updateOtherStats()
         window.topFrame.topLeftFrame.updateInventory()
 
     def usePotion(self, event=None):
-        if (self.potionButton['state'] == NORMAL and
-            main.view in ("travel", "inventory")):
+        if (self.potionButton['state'] == NORMAL):
             main.character.hp += 50
             main.character.potions -= 1
             message = "You consume a vial full of life fluid."
             window.bottomFrame.bottomLeftFrame.insertOutput(message)
             self.updateOtherStats()
             window.topFrame.topLeftFrame.updateVitalStats()
+            main.sound.playSound(main.sound.sounds['Drink'])
 
     def clickBuyButton(self):
         main.buy(self.v2.get())
@@ -958,9 +991,10 @@ class TopRightFrame:
             self.wisdomValueButton.config(state=DISABLED, relief=FLAT,
                                           bg=DEFAULT_BG, fg=BLACK)
         
-        state = NORMAL if c.potions > 0 else DISABLED
-        font = font4 if c.potions < 100 else font2
-        text = c.potions if c.potions > 0 else ""
+        state = NORMAL if c.potions > 0 and (
+            main.view in ("travel", "inventory")) else DISABLED
+        font = font3 if c.potions < 100 else font1
+        text = c.potions if c.potions > 0 else " "
         self.potionButton.config(state=state, font=font, text=text)
 
     def updateEnemyStats(self):
@@ -996,12 +1030,6 @@ class TopRightFrame:
                     self.storeButtons[i*3+j].config(image=itemImage,
                                                     state=NORMAL)
 
-    def toggleConfigLogMovement(self, event=None):
-        """Toggle in the character config
-        flag whether movement should be logged."""
-        main.character.flags['Config']['Log Movement'] =\
-            int(not main.character.flags['Config']['Log Movement'])
-
 
 class BottomLeftFrame:
     """Contains an output box with scrollbar."""
@@ -1036,9 +1064,13 @@ class BottomLeftFrame:
         
     def insertTimestamp(self, addSpacing=False):
         self.outputBox['state'] = NORMAL
-        # timestamp = "It is {dt:%I}:{dt.minute} {dt:%p} on {dt:%A}, {dt:%B} {dt.day}, {dt.year}".format(
-        #     dt = datetime.now())
-        timestamp = ""
+        timestamp = "{dt:%I}:{dt.minute} {dt:%p} - {greeting}".format(
+            dt = datetime.now(),
+            greeting = random.choice([
+                "Let the quest begin.",
+                "Brace yourself.",
+                "Smell those scents of adventure."
+            ]))
         self.outputBox.insert(END,
                               "%s❧ %s" % ("\n\n" if addSpacing else "", timestamp),
                               ("grey", "highlight"))
@@ -1154,10 +1186,8 @@ class BottomRightFrame:
         
     def move(self, arrowDirection, movementDirection):
         interfaceActions = main.move(arrowDirection)
-        if window.topFrame.topRightFrame.logMovement.get():
-            interfaceActions['text'] = \
-                        self.updateText(interfaceActions, movementDirection)
         interfaceActions['map'] = True
+        main.sound.playSound(main.sound.sounds['Move'])
         updateInterface(interfaceActions)
 
     def clickUpButton(self, event=None):
@@ -1192,6 +1222,7 @@ class BottomRightFrame:
             self.okButton['state'] = DISABLED
             self.disableMenuBox()
             enableInventoryView()
+            main.sound.playSound(main.sound.sounds['Inventory'])
 
     def clickBackButton(self, event=None):
         if self.centerButton['state'] == NORMAL:
@@ -1203,6 +1234,7 @@ class BottomRightFrame:
             self.enableMenuBox()
             self.okButton['state'] = self.lastOkButtonState
             views[main.view]()
+            main.sound.playSound(main.sound.sounds['Return'])
 
     def clickCancelDropButton(self):
         self.centerButton.config(image=inventoryImage,
@@ -1246,23 +1278,27 @@ class BottomRightFrame:
             updateInterface(interfaceActions)
 
     def clickOkButton(self):
-        selection = int(self.menuBox.curselection()[0])
-        interfaceActions = main.select(selection)
-        interfaceActions['map'] = True
-        updateInterface(interfaceActions)
+        if self.okButton['state'] == NORMAL:
+            selection = int(self.menuBox.curselection()[0])
+            interfaceActions = main.select(selection)
+            interfaceActions['map'] = True
+            updateInterface(interfaceActions)
 
     def clickSkillButton(self):
-        selection = int(self.menuBox.curselection()[0])
-        interfaceActions = main.useSkill(main.character.skills[selection])
-        updateInterface(interfaceActions)
+        if self.skillButton['state'] == NORMAL:
+            selection = int(self.menuBox.curselection()[0])
+            interfaceActions = main.useSkill(main.character.skills[selection])
+            updateInterface(interfaceActions)
 
     def clickForgetButton(self):
-        selection = int(self.menuBox.curselection()[0])
-        main.character.forgetSkill(main.character.skills[selection])
-        main.character.learnSkill(main.tempSkill)
-        window.gridnewSkillFrame(main.tempSkill.NAME)
-        main.character.euros -= main.tempCost
-        self.clickCancelForgetButton()
+        if self.okButton['state'] == NORMAL:
+            selection = int(self.menuBox.curselection()[0])
+            main.character.forgetSkill(main.character.skills[selection])
+            main.character.learnSkill(main.tempSkill)
+            window.gridnewSkillFrame(main.tempSkill.NAME)
+            main.sound.playSound(main.sound.sounds['New Skill'])
+            main.character.euros -= main.tempCost
+            self.clickCancelForgetButton()
 
     def enableMenuBox(self):
         self.menuBox.bind('<<ListboxSelect>>', self.enableOkButton)
@@ -1288,10 +1324,10 @@ class BottomRightFrame:
     def selectChoice(self, event=None):
         if self.menuBox['state'] != DISABLED:
             tempSelection = self.menuBox.curselection()
-            for i in range(0, 4):
-                self.menuBox.selection_clear(i)
+            self.menuBox.selection_clear(0, 'end')
             self.menuBox.selection_set(int(event.char)-1)
             if self.menuSelectionIsValid():
+                self.okButton['state'] = NORMAL
                 self.clickOkButton()
             elif bool(tempSelection):
                 self.menuBox.selection_set(int(tempSelection[0]))
@@ -1299,10 +1335,10 @@ class BottomRightFrame:
     def selectSkill(self, event=None):
         if self.menuBox['state'] != DISABLED:
             tempSelection = self.menuBox.curselection()
-            for i in range(0, 4):
-                self.menuBox.selection_clear(i)
+            self.menuBox.selection_clear(0, 'end')
             self.menuBox.selection_set(int(event.char)-1)
             if self.menuSelectionIsValid():
+                self.skillButton['state'] = NORMAL
                 self.clickSkillButton()
             elif bool(tempSelection):
                 self.menuBox.selection_set(int(tempSelection[0]))
@@ -1321,6 +1357,7 @@ class BottomRightFrame:
                 interfaceActions['text'] = "\n"+interfaceActions['text'].strip()
             interfaceActions['map'] = True
             updateInterface(interfaceActions)
+            main.sound.playSound(main.sound.sounds['Select Option'])
 
     def enableDirectionButtons(self, enabledDirections):
         """Set the state of specified direction buttons to NORMAL."""        
@@ -1356,14 +1393,6 @@ class BottomRightFrame:
             for i in menuItems:
                 self.menuBox.insert(END, i)
 
-    def updateText(self, actions, direction):
-        movementPhrase = "You %s %s." % (main.currentArea.movementVerb,
-                                         direction)
-        if 'text' in actions and actions['text']:
-            textWithMovement = movementPhrase+"\n"+actions['text']
-            return textWithMovement
-        return movementPhrase
-
 
 def makeItemButtons(master, var, inStore):
     """Create 9 buttons to represent either inventory or store items.
@@ -1395,20 +1424,25 @@ def displayItemStats():
     
     frame.itemValueLabel['text'] = "Worth "+str(item.SELL_PRICE)+" Euros"
     
-    if item.CATEGORY == "Miscellaneous" and "*" not in item.INFORMATION:
-        frame.itemRequirementLabel['text'] = item.INFORMATION
-    elif item.CATEGORY == "Miscellaneous" and "*" in item.INFORMATION:
-        frame.itemRequirementLabel['text'] = item.INFORMATION.split("*")[0]
+    if item.CATEGORY == "Miscellaneous":
+        frame.itemRequirementLabel['font'] = italicFont1
+        if "*" not in item.INFORMATION:
+            frame.itemRequirementLabel['text'] = item.INFORMATION
+        elif "*" in item.INFORMATION:
+            frame.itemRequirementLabel['text'] = item.INFORMATION.split("*")[0]
     else:
+        frame.itemRequirementLabel['font'] = font1
         frame.itemRequirementLabel['text'] = ("Requires",
                                               item.REQUIREMENT_VALUE,
                                               item.REQUIREMENT_TYPE)
 
+    frame.itemQualityLabel['font'] = font1
     if item.CATEGORY == "Armour" or item.CATEGORY == "Shield":
         frame.itemQualityLabel['text'] = item.DEFENCE, "Defence"
     elif item.CATEGORY == "Miscellaneous" and "*" not in item.INFORMATION:
         frame.itemQualityLabel['text'] = ""
-    elif item.CATEGORY == "Miscellaneous" and "*" in item.INFORMATION:        
+    elif item.CATEGORY == "Miscellaneous" and "*" in item.INFORMATION:
+        frame.itemQualityLabel['font'] = italicFont1
         frame.itemQualityLabel['text'] = item.INFORMATION.split("*")[1]
     else:
         frame.itemQualityLabel['text'] = item.POWER, "Power"
@@ -1476,6 +1510,8 @@ def displayItemStats():
         frame.equipButton['state'] = NORMAL
 
     frame.dropButton['state'] = NORMAL
+
+    main.sound.playSound(main.sound.sounds['Select Item'])
 
 
 def displayStoreItemStats():
@@ -1558,6 +1594,8 @@ def displayStoreItemStats():
     else:
         frame.buyButton['state'] = NORMAL
 
+    main.sound.playSound(main.sound.sounds['Select Item'])
+
 
 def clearItemStats(frame, store):
     frame.itemNameLabel.config(text="Select an item.", font=italicFont2)
@@ -1573,9 +1611,16 @@ def clearItemStats(frame, store):
 
 
 def flash():
-    topCenterFrame = window.topFrame.topCenterFrame
-    for i in range(0, 6):
-        topCenterFrame.areaButton.flash()
+    frame = window.topFrame.topCenterFrame
+    if frame.showMap.get():
+        frame.map.grid_remove()
+        frame.areaButton.grid()
+        root.update()
+    for i in range(0, 5):
+        frame.areaButton.flash()
+    if frame.showMap.get():
+        frame.areaButton.grid_remove()
+        frame.map.grid()
 
 
 def updateInterface(updates):
@@ -1593,6 +1638,33 @@ def updateInterface(updates):
     # Flash must occur before battle view is shown and area button is disabled
     if ('flash' in updates):
         flash()
+        
+    if ('image index' in updates) and (updates['image index'] is not None):
+        areaName = main.currentArea.name
+        if len(areaImages[areaName]) == 0:
+            def incrementProgress(complete=False):
+                global loadProgress
+                if complete:
+                    loadProgress = FULL_PROGRESS
+                else:
+                    loadProgress += float(FULL_PROGRESS) / worstCaseAssetCount
+                root.update()
+            enableLoadingView()
+            updateLoadingScreen(displayLoadingScreen())
+            worstCaseAssetCount = 99
+            for i in range(0, worstCaseAssetCount):
+                try:
+                    areaImages[areaName].append(PhotoImage(
+                        file="images\\areas\\"+areaName+"\\"+str(i)+".gif"
+                    ))
+                    incrementProgress()
+                except TclError:
+                    incrementProgress(True)
+                    break
+            window.bottomFrame.bottomRightFrame.bindChoices()
+            window.gameFrame.grid()
+        topCenterFrame.areaButton['image'] =\
+            areaImages[areaName][updates['image index']]
 
     bottomLeftFrame.unhighlightOutputBox()
     topCenterFrame.changeTitle(main.currentArea.name)
@@ -1605,6 +1677,7 @@ def updateInterface(updates):
             main.character.level)+"!"
         window.gridLevelUpFrame()
         window.levelUpLabel['text'] = "LEVEL %d!" % main.character.level
+        main.sound.playSound(main.sound.sounds['Level Up'])
 
     if hasattr(main.character, 'specialization'):
         while main.character.hasSpecializedUp():
@@ -1621,6 +1694,7 @@ def updateInterface(updates):
             updates['text'] += "\n%s has reached level %s!" % (mercenary.NAME,
                                                                mercenary.level)
             window.gridMercenaryUpFrame(mercenary.NAME)
+            main.sound.playSound(main.sound.sounds['Mercenary Up'])
             
     if ('game over' == updates['view']):
         if not updates['text']:
@@ -1634,10 +1708,9 @@ def updateInterface(updates):
                                               is not None):
         bottomRightFrame.enableDirectionButtons(
             updates['enabled directions'])
-    if ('image index' in updates) and (updates['image index'] is not None):
-        topCenterFrame.areaButton['image'] =\
-            areaImages[main.currentArea.name][updates['image index']]
     if ('menu' in updates) and (updates['menu'] is not None):
+        if len(updates['menu']) > 0:
+            main.sound.playSound(main.sound.sounds['Menu'])
         bottomRightFrame.modifyMenu(updates['menu'])
         bottomRightFrame.okButton['state'] = DISABLED
     if ('overloaded' in updates) and (updates['overloaded'] == "items"):
@@ -1648,6 +1721,7 @@ def updateInterface(updates):
         window.gridnewSkillFrame(updates['skill'])
     if ('item' in updates) and (updates['item'] is not None):
         window.gridLootFrame()
+        main.sound.playSound(main.sound.sounds['Get Item'])
     if 'save' in updates and updates['save'] is not None:
         main.saveGame()
         if not updates['text']:
@@ -1711,6 +1785,7 @@ def enableBattleView():
     bottomFrame.leftButton['state'] = DISABLED
     bottomFrame.rightButton['state'] = DISABLED
     bottomFrame.downButton['state'] = DISABLED
+    bottomFrame.okButton['state'] = DISABLED
     bottomFrame.upButton.grid_remove()
     bottomFrame.leftButton.grid_remove()
     bottomFrame.rightButton.grid_remove()
@@ -1742,6 +1817,7 @@ def enableBattleOverView():
     frame.attackButton['state'] = DISABLED
     frame.defendButton['state'] = DISABLED
     frame.fleeButton['state'] = DISABLED
+    frame.skillButton['state'] = DISABLED
     frame.skillButton.grid_remove()
     frame.menuBox.bind_all('1', frame.endBattle)
     frame.modifyMenu(["Proceed."])
@@ -1759,6 +1835,7 @@ def enableGameOverView():
     bottomFrame.attackButton['state'] = DISABLED
     bottomFrame.defendButton['state'] = DISABLED
     bottomFrame.fleeButton['state'] = DISABLED
+    bottomFrame.skillButton['state'] = DISABLED
     bottomFrame.skillButton.grid_remove()
     bottomFrame.menuBox.unbind_all('1')
     bottomFrame.okButton.grid()
@@ -1773,6 +1850,27 @@ def enableGameOverView():
     
     window.topFrame.topLeftFrame.updateVitalStats()
     window.topFrame.topRightFrame.updateEnemyStats()
+
+
+def enableLoadingView():
+    window.gameFrame.grid_remove()
+    window.topFrame.topCenterFrame.areaButton['state'] = DISABLED
+    bottomFrame = window.bottomFrame.bottomRightFrame
+    bottomFrame.upButton['state'] = DISABLED
+    bottomFrame.leftButton['state'] = DISABLED
+    bottomFrame.rightButton['state'] = DISABLED
+    bottomFrame.downButton['state'] = DISABLED
+    bottomFrame.centerButton['state'] = DISABLED
+    bottomFrame.attackButton['state'] = DISABLED
+    bottomFrame.defendButton['state'] = DISABLED
+    bottomFrame.fleeButton['state'] = DISABLED
+    bottomFrame.skillButton['state'] = DISABLED
+    bottomFrame.okButton['state'] = DISABLED
+    bottomFrame.centerButton['state'] = DISABLED
+    bottomFrame.menuBox.unbind_all('1')
+    bottomFrame.menuBox.unbind_all('2')
+    bottomFrame.menuBox.unbind_all('3')
+    bottomFrame.menuBox.unbind_all('4')
 
 
 def enableInventoryView():
@@ -1897,10 +1995,11 @@ def close(event=None):
     if requireExitConfirmation():
         canSave = (window.topFrame.topCenterFrame.areaButton['state'] == NORMAL
                    and main.view != "game over")
+        main.sound.playSound(main.sound.sounds['Open Dialog'])
         if canSave:
             answer = tkMessageBox.askyesnocancel(
                 "Save and Exit",
-                "Do you want to save before you exit?",
+                "Do you want to save the game?",
                 parent=root)
             if answer is None:
                 return
@@ -1908,8 +2007,8 @@ def close(event=None):
                 main.saveGame()
         elif main.view != "game over":
             if not tkMessageBox.askokcancel(
-                 "Quit",
-                 "Are you sure you want to quit?",
+                 "Warning",
+                 "You can't save right now. Are you sure you want to quit?",
                  parent=root):
                 return
 
@@ -1917,6 +2016,8 @@ def close(event=None):
 
 
 def displayLoadingScreen():
+    global loadProgress
+    loadProgress = 0
     loadingText = random.choice([
         "Blub blub.",
         "Yaouw!",
@@ -1960,7 +2061,7 @@ def loadAssets():
     assetsToLoad += len(main.shields)
     assetsToLoad += len(main.miscellaneousItems)
     assetsToLoad += len(main.enemies)
-    assetsToLoad += len(main.areas)
+    # assetsToLoad += len(main.areas)
     
     for i in range(1, NUMBER_OF_BARS):
         xpBars.append(PhotoImage(file="images\\bars\\xpbar"+
@@ -1975,15 +2076,6 @@ def loadAssets():
     
     for area in main.areas.itervalues():
         areaImages[area.name] = []
-        while 1:
-            try:
-                for i in range(0, 99):
-                    areaImages[area.name].append(PhotoImage
-                                                 (file="images\\areas\\"+area.name+
-                                                  "\\"+str(i)+".gif"))
-            except TclError:
-                break
-        incrementProgress()
 
     for enemyId in main.enemies:
         enemyImages[enemyId] = (PhotoImage(file="images\\enemies\\"+
@@ -2017,7 +2109,7 @@ def loadGame(event=None):
     global window
     window = Window(root)
     hideSideFrames()
-    main.initializeSound()
+    main.sound.playMusic(main.sound.songs['Intro Theme'])
     
     
 def requireExitConfirmation(yes=None):
@@ -2082,6 +2174,7 @@ root = Tk()
 
 # Initialize variables
 font1 = tkFont.Font(family="Garamond", size=10)
+italicFont1 = tkFont.Font(family="Garamond", size=10, slant="italic")
 font2 = tkFont.Font(family="Garamond", size=11)
 italicFont2 = tkFont.Font(family="Garamond", size=11, slant="italic", weight="bold")
 font3 = tkFont.Font(family="Garamond", size=12, weight="bold")
@@ -2098,6 +2191,8 @@ gameOverImage = PhotoImage(file="images\\other\\gameover.gif")
 
 euroImage = PhotoImage(file="images\\icons\\euro.gif")
 potionImage = PhotoImage(file="images\\icons\\potion.gif")
+sfxImage = PhotoImage(file="images\\icons\\sfx.gif")
+musicImage = PhotoImage(file="images\\icons\\music.gif")
 mapImage = PhotoImage(file="images\\icons\\map.gif")
 vBorderImage1 = PhotoImage(file="images\\other\\border21.gif")
 vBorderImage2 = PhotoImage(file="images\\other\\border22.gif")
@@ -2124,7 +2219,6 @@ spBars = []
 areaImages = {}
 itemImages = {}
 enemyImages = {}
-loadProgress = 0
 FULL_PROGRESS = 100
 
 xpBars.append(PhotoImage(file="images\\bars\\xpbar"+

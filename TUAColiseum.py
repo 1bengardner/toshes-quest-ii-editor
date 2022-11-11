@@ -2,7 +2,7 @@
 File: TUAColiseum.py
 Author: Ben Gardner
 Created: August 10, 2015
-Revised: May 11, 2017
+Revised: November 9, 2022
 """
 
 
@@ -111,11 +111,15 @@ class Coliseum:
         self.helpText = None
         self.menu = []
 
+        entryFee = 1000
+
         if ( selectionIndex == 0 and self.c.hp <= self.CHARACTER_DEATH_HP):
             self.text = ("Guard: Sir, you are not fit to fight. Take a" +
                          " rest and come back.")
+        elif (selectionIndex == 0 and self.c.euros < entryFee):
+            self.text = "Guard: One thousand euros to enter, sir."
         elif selectionIndex == 0:
-            self.c.euros -= 1000
+            self.c.euros -= entryFee
             X = 6
             Y = 2
             return self.actions({'area': "Coliseum",
@@ -185,7 +189,7 @@ class Coliseum:
                 del self.c.flags['Champion Skill']
                 del self.c.flags['Champion Defeated']
                 del self.c.flags['Coliseum Winnings']
-                self.menu = ["Enter the pit (1000 euros).",
+                self.menu = ["Enter the pit (%s euros)." % entryFee,
                              "Ask for the rules.",
                              "Leave."]
                 return self.actions({'skill': skillName,
@@ -202,7 +206,7 @@ class Coliseum:
                 self.text += ("\nQendresa: Good luck, Toshe!")
             if self.c.hasMercenary("Barrie"):
                 self.text += ("\nBarrie: Go kick butt in there, chap.")
-        self.menu = ["Enter the pit (1000 euros).",
+        self.menu = ["Enter the pit (%s euros)." % entryFee,
                      "Ask for the rules.",
                      "Leave."]
         return self.actions()
@@ -288,9 +292,9 @@ class Coliseum:
                 self.championSkill = self.championSkills[enemy]
                 if enemy == self.champions[0]:
                     self.text = ("Champion: Warrior, that was a spectacle" +
-                                 " to behold. Now it is our turn to paint" +
+                                 " to behold. Now it is my turn to paint" +
                                  " a picture for the ages. The canvas, this" +
-                                 " arena; the brushes, our weapons. The" +
+                                 " arena; the brush, my weapon. The" +
                                  " paint...")
                 elif enemy == self.champions[1]:
                     self.text = ("Champion: You've come far, warrior." +

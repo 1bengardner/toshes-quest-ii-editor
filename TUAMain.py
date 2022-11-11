@@ -2,7 +2,7 @@
 File: TUAMain.py
 Author: Ben Gardner
 Created: January 14, 2013
-Revised: June 7, 2020
+Revised: November 6, 2022
 """
 
 
@@ -10,6 +10,8 @@ import pickle
 from copy import deepcopy
 from random import randint
 from random import choice
+from collections import Counter
+from datetime import date
 
 from TUAWeapon import Weapon
 from TUAArmour import Armour
@@ -62,6 +64,9 @@ from TUAGolemCavern3 import GolemCavern3
 from TUASimelliermPit import SimelliermPit
 from TUAGalijula import Galijula
 from TUAFartooqHold import FartooqHold
+from TUAYaouwVolcano import YaouwVolcano
+from TUADuneHotsPeak import DuneHotsPeak
+from TUALairOfTheMagi import LairOfTheMagi
 
 
 class Main:
@@ -110,13 +115,13 @@ class Main:
                     'Fiery',
                     'Sturdy',
                     'Exotic',
-                    'Guard\'s'],
+                    'Heavy'],
                 2: [
                     'Gaian',
                     'Glacial',
                     'Molten',
                     'Robust',
-                    'Sentinel\'s'],}
+                    'Massive'],}
         self.itemModifiers = {  # Category: Level: ModName
             'Sword': weaponModifiers,
             'Club': weaponModifiers,
@@ -139,6 +144,7 @@ class Main:
         self.populateMercenaries()
         self.populateAreas()
         self.buyback = False
+        self.sound = Sound()
 
     def markMap(self, xy = None):
         marked = self.character.flags['Marked Areas'][self.currentArea.name]
@@ -172,7 +178,7 @@ class Main:
             item.FIRE_REDUCTION += value
         elif modifier in ('Sturdy', 'Robust'):
             item.DEFENCE += value
-        elif modifier in ('Guard\'s', 'Sentinel\'s'):
+        elif modifier in ('Heavy', 'Massive'):
             item.B_RATE += value / 2
 
     def loadGame(self, fileName):
@@ -184,6 +190,7 @@ class Main:
             self.x = self.character.x
             self.y = self.character.y
             self.initializeDefaultBattle()
+        self.sound.playSound(self.sound.sounds['Load'])
 
     def startNewGame(self, fileName):
         """Create a new character and record it in a savefile."""
@@ -204,8 +211,7 @@ class Main:
                                    {'Kills': {},
                                     'Discovered Areas': {},
                                     'Marked Areas': {},
-                                    'Config': {'Log Movement': 1,
-                                               'Automap On': 0}},
+                                    'Config': {'Automap On': 0}},
                                    self.areas['Adriatic Sea'],
                                    STARTING_X, STARTING_Y,
                                    0)
@@ -221,6 +227,7 @@ class Main:
         self.character.y = self.y
         with open("saves\\"+self.fileName+".tq", "w") as gameFile:
             pickle.dump(self.character, gameFile)
+        self.sound.playSound(self.sound.sounds['Save'])
 
     def populateAreas(self):
         self.areas = {'Adriatic Sea': AdriaticSea,
@@ -262,7 +269,10 @@ class Main:
                       'Golem Cavern: Floor 3': GolemCavern3,
                       'Simellierm Pit': SimelliermPit,
                       'Galijula': Galijula,
-                      'Fartooq Hold': FartooqHold}
+                      'Fartooq Hold': FartooqHold,
+                      'Yaouw Volcano': YaouwVolcano,
+                      'Dune Hots Peak': DuneHotsPeak,
+                      'Lair of the Magi': LairOfTheMagi}
 
     def populateWeapons(self):
         with open("data\\weapondata.txt", "r") as weaponFile:
@@ -438,11 +448,6 @@ class Main:
                  blankWeapon, blankArmour, blankShield,
                  statPoints, flags, area, x, y, 0)
 
-    def initializeSound(self):
-        """Initialize sounds in the game and start the intro tune."""
-        self.sound = Sound()
-        self.sound.playMusic(self.sound.songs['Intro Theme'])
-
     def move(self, direction):
         """Move character in the specified direction in the area.
 
@@ -465,8 +470,34 @@ class Main:
 
         Add temporary flags to the character."""
         self.addFlags()
+        self.sound.playSound(self.sound.sounds['Select Option'])
         return self.getInterfaceActions(selectionIndex)
 
+    def getLoginEvents(self):
+        isChristmasSeason = (
+            date.today().month == 12 and
+            date.today().day > 10 or
+            date.today().month == 1 and
+            date.today().day < 9)
+        year = date.today().year
+        if date.today().month == 1:
+            year -= 1
+        if ( isChristmasSeason and
+             self.character.hasRoom() and
+             "Christmas %i" % year not in self.character.flags):
+            itemText = "You get an Ugly Disguise."
+            rewardText = "Thank you for playing during this holiday season!"
+            interfaceActions = {
+                'view': "travel",
+                'image index': 0,
+                'menu': [],
+                'text': itemText,
+                'italic text': rewardText,
+                'item': "Ugly Disguise"}
+            self.collectItem(interfaceActions)
+            self.character.flags["Christmas %i" % year] = True
+            return interfaceActions
+        
     def getInterfaceActions(self, selectionIndex=None, justFought=False):
         """Retrieve the interface actions from the current spot.
 
@@ -549,6 +580,7 @@ class Main:
                 interfaceActions['text'] += ("\nYou learned "+skill.NAME+"!")
             self.character.euros -= interfaceActions['cost']
             interfaceActions['new skill'] = True
+            self.sound.playSound(self.sound.sounds['New Skill'])
 
         if 'enemies' in interfaceActions:
             enemyIdentifier = self.selectRandomElement(
@@ -559,6 +591,7 @@ class Main:
             self.currentArea = self.areas[interfaceActions['area']](
                 self.character)
             self.x, self.y = interfaceActions['coordinates']
+            self.sound.playSound(self.sound.sounds['Warp'])
             return self.getInterfaceActions()
         elif interfaceActions['view'] == "battle":
             interfaceActions['menu'] = None
@@ -687,14 +720,14 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
         elif (self.sound.isInstantPlay(self.currentArea.audio) or
               "New Song" in self.character.flags):
             if "New Song" in self.character.flags:
-                self.currentArea.audio = self.character.flags['New Song']
+                newSong = self.character.flags['New Song']
                 del self.character.flags['New Song']
-            newSong = self.currentArea.audio
+            else:
+                newSong = self.currentArea.audio
             self.sound.playMusic(newSong)
         # New area
         elif (currentView != "battle" and
               currentView != "battle over" and
-              self.currentArea.audio and
               self.sound.isNewSong(self.currentArea.audio)):
             newSong = self.currentArea.audio
             self.sound.fadeoutMusic(2000)
@@ -738,37 +771,42 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
 
     def attack(self):
         interfaceActions = self.battle.attack(self.skills['Attack'])
-        self.collectItem(interfaceActions, True)
-        self.view = interfaceActions['view']
-        self.updateMusic(interfaceActions['view'])
+        self.updateBattleVariables(interfaceActions)
         return interfaceActions
     
     def defend(self):
         interfaceActions = self.battle.attack(self.skills['Defend'])
-        self.collectItem(interfaceActions, True)
-        self.view = interfaceActions['view']
-        self.updateMusic(interfaceActions['view'])
+        self.updateBattleVariables(interfaceActions)
         return interfaceActions
 
     def flee(self):
         interfaceActions = self.battle.flee()
-        self.view = interfaceActions['view']
-        self.updateMusic(interfaceActions['view'])
+        self.updateBattleVariables(interfaceActions)
         return interfaceActions
 
     def useSkill(self, skill):
         interfaceActions = self.battle.attack(skill)
-        self.collectItem(interfaceActions, True)
-        self.view = interfaceActions['view']
-        self.updateMusic(interfaceActions['view'])
+        self.updateBattleVariables(interfaceActions)
         return interfaceActions
 
     def equipItem(self):
         interfaceActions = self.battle.attack(self.skills['Equip Item'])
+        self.updateBattleVariables(interfaceActions)
+        return interfaceActions
+        
+    def updateBattleVariables(self, interfaceActions):
         self.collectItem(interfaceActions, True)
         self.view = interfaceActions['view']
         self.updateMusic(interfaceActions['view'])
-        return interfaceActions        
+        if 'sounds' in interfaceActions:
+            soundCount = Counter()
+            for sound in interfaceActions['sounds']:
+                if "Critical" in sound: # Don't stack critical sounds
+                    soundCount[sound] = 1
+                else:
+                    soundCount[sound] += 1
+            for sound in soundCount:
+                self.sound.playSound(self.sound.sounds[sound], soundCount[sound])
 
     def addMercenary(self, interfaceActions):
         if 'mercenary' in interfaceActions:
@@ -781,6 +819,7 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
         if self.buyback:
             self.character.flags['Buyback Items'][itemIndex] = None
             self.store[itemIndex] = None
+        self.sound.playSound(self.sound.sounds['Buy'])
 
     def sell(self, itemIndex):
         if self.buyback:
@@ -799,28 +838,30 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
                 self.character.items[itemIndex])
         self.character.euros += self.character.items[itemIndex].SELL_PRICE
         self.character.removeItem(itemIndex)
+        self.sound.playSound(self.sound.sounds['Sell'])
 
     def collectItem(self, interfaceActions, randomize=False):
         if ( 'item' in interfaceActions and
              self.items[interfaceActions['item']].CATEGORY == "Miscellaneous"):
             randomize = False
             
-        if 'item' in interfaceActions and self.character.hasRoom():
+        if 'item' in interfaceActions:
             item = deepcopy(self.items[interfaceActions['item']])
             if randomize:
-                item = self.randomizeItem(item)
-            self.character.addItem(item)
-        elif 'item' in interfaceActions and not self.character.hasRoom():
-            self.tempItem = deepcopy(self.items[interfaceActions['item']])
-            if randomize:
-                self.tempItem = self.randomizeItem(self.tempItem)
-            interfaceActions['overloaded'] = "items"
-            interfaceActions['text'] += ("\nYou are carrying too much! "+
-                                         "Choose an item to drop.")
+                item, modifier = self.randomizeItem(item)
+                if modifier is not None:
+                    interfaceActions['text'] += ("\nToshe: It looks %s!" % modifier.lower())
+            if self.character.hasRoom():
+                self.character.addItem(item)
+            else:
+                self.tempItem = item
+                interfaceActions['overloaded'] = "items"
+                interfaceActions['text'] += ("\nYou are carrying too much! "+
+                                             "Choose an item to drop.")
 
     def randomizeItem(self, item):
         if self.roll(100) > 25:
-            return item
+            return item, None
         level = 1
         levelRoll = self.roll(10000)
         if levelRoll < item.PRICE:
@@ -829,7 +870,7 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
         value = (self.roll(3) + 1) * level
         self.modifyItemStat(item, modifier, value)
         item.NAME = "%s %s" % (modifier, item.NAME)
-        return item
+        return item, modifier
 
     def initializeDefaultBattle(self):
         """Initialize the battle attribute to prevent glitches that occur

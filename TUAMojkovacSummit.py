@@ -2,7 +2,7 @@
 File: TUAMojkovacSummit.py
 Author: Ben Gardner
 Created: June 8, 2013
-Revised: May 28, 2020
+Revised: October 26, 2022
 """
 
 
@@ -339,7 +339,9 @@ class MojkovacSummit:
             X = 10
             Y = 6
             return self.actions({'area': "Mojkovac Summit",
-                                 'coordinates': (X, Y)})            
+                                 'coordinates': (X, Y)})
+        
+        self.c.flags['New Song'] = "Drat"
         self.text = (npc+": We meet again. This time, we fight to the death."+
                      "\nToshe: Where the hell did you come from?"+
                      "\nMarciano: Silence!"+

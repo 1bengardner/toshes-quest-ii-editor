@@ -2,7 +2,7 @@
 File: TUATheWatchmakingFacility.py
 Author: Ben Gardner
 Created: August 24, 2013
-Revised: May 31, 2020
+Revised: October 26, 2022
 """
 
 
@@ -206,7 +206,7 @@ class TheWatchmakingFacility:
         if "Pespozeor 1" not in self.c.flags:
             self.text = ("Dragan: Toshe...what is that?"+
                          "\nYou see a gigantic beast lying in the corner of "+
-                         "the room."+
+                         "the room. It looks heavily wounded."+
                          "\nToshe: I don't know. But it's in the way. We "+
                          "need to get rid of that."+
                          "\nYou prepare to strike."+
@@ -311,6 +311,7 @@ class TheWatchmakingFacility:
             self.tempFlag = "Pespozeor 5"
 
         elif "Pespozeor 6" not in self.c.flags:
+            self.c.flags['New Song'] = "Drat"
             self.text = ""
             if selectionIndex == 0:
                 self.text = ("Toshe: Nope.\n")
@@ -333,6 +334,7 @@ class TheWatchmakingFacility:
                                  'mercenaries': self.c.mercenaries})
 
         elif "Maximilian" not in self.c.flags:
+            self.c.flags['New Song'] = "Drat"
             self.text = ("Toshe: We're unstoppable!"+
                          "\nDragan: Now leave us!"+
                          "\nMaximilian: I suppose you leave me no other "+
