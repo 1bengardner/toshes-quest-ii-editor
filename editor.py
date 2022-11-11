@@ -14,7 +14,7 @@ def setChildren(children, enabled):
     for child in children:
         if child.winfo_class() == "TSeparator":
             continue
-        elif child.winfo_class() in ("Frame", "LabelFrame"):
+        elif child.winfo_class() in ("Frame", "Labelframe"):
             setChildren(child.winfo_children(), enabled)
         else:
             child.config(state=(NORMAL if enabled else DISABLED))
@@ -44,6 +44,8 @@ class EditorEntry(Entry):
         Entry.__init__(self, *args, **kwargs)
         vcmd = (self.master.register(self.validate), '%P')
         self.config(textvariable=self.v, validatecommand=vcmd, validate='key')
+        if self.constraint and ("int" in self.constraint or "float" in self.constraint):
+            self.config(justify=RIGHT)
 
     def set(self, text):
         self.delete(0, END)
@@ -92,45 +94,47 @@ class EditorText(Text):
 
 class StatWindow:
     def __init__(self, master):
-        self.charFrame = LabelFrame(master, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], text="Stats")
-        self.charFrame.grid()
-        potionFrame = Frame(master, bg=COLOURS['DEFAULT_BG'])
-        potionFrame.grid()
+        charFrame = Frame(master, bg=COLOURS['DEFAULT_BG'])
+        charFrame.grid()
+        collectiblesFrame = Frame(charFrame, bg=COLOURS['DEFAULT_BG'])
+        collectiblesFrame.grid()
+        self.statsFrame = LabelFrame(charFrame, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], text="Stats")
+        self.statsFrame.grid(pady=8)
 
-        levelLabel = Label(self.charFrame, text="Level", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
-        levelLabel.grid(row=0, column=0)
-        self.level = EditorEntry(self.charFrame, width=2, onTextChanged=self.onStatModified, constraint="length,int")
+        eurosLabel = Label(collectiblesFrame, image=IMAGES['EURO'], bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        eurosLabel.grid(row=0, column=0)
+        self.euros = EditorEntry(collectiblesFrame, width=6, onTextChanged=self.onStatModified, constraint="length,int")
+        self.euros.grid(row=0, column=1, sticky='E')
+
+        potionLabel = Label(collectiblesFrame, image=IMAGES['POTION'], bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        potionLabel.grid(row=1, column=0)
+        self.potions = EditorEntry(collectiblesFrame, width=3, onTextChanged=self.onStatModified, constraint="length,int")
+        self.potions.grid(row=1, column=1, sticky='E')
+
+        levelLabel = Label(self.statsFrame, text="Level", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        levelLabel.grid(row=0, column=0, padx=32)
+        self.level = EditorEntry(self.statsFrame, width=2, onTextChanged=self.onStatModified, constraint="length,int")
         self.level.grid(row=0, column=1, sticky='E')
 
-        strengthLabel = Label(self.charFrame, text="Strength", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        strengthLabel = Label(self.statsFrame, text="Strength", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         strengthLabel.grid(row=1, column=0)
-        self.strength = EditorEntry(self.charFrame, width=3, onTextChanged=self.onStatModified, constraint="length,int")
+        self.strength = EditorEntry(self.statsFrame, width=3, onTextChanged=self.onStatModified, constraint="length,int")
         self.strength.grid(row=1, column=1, sticky='E')
 
-        dexterityLabel = Label(self.charFrame, text="Dexterity", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        dexterityLabel = Label(self.statsFrame, text="Dexterity", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         dexterityLabel.grid(row=2, column=0)
-        self.dexterity = EditorEntry(self.charFrame, width=3, onTextChanged=self.onStatModified, constraint="length,int")
+        self.dexterity = EditorEntry(self.statsFrame, width=3, onTextChanged=self.onStatModified, constraint="length,int")
         self.dexterity.grid(row=2, column=1, sticky='E')
 
-        wisdomLabel = Label(self.charFrame, text="Wisdom", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
+        wisdomLabel = Label(self.statsFrame, text="Wisdom", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
         wisdomLabel.grid(row=3, column=0)
-        self.wisdom = EditorEntry(self.charFrame, width=3, onTextChanged=self.onStatModified, constraint="length,int")
+        self.wisdom = EditorEntry(self.statsFrame, width=3, onTextChanged=self.onStatModified, constraint="length,int")
         self.wisdom.grid(row=3, column=1, sticky='E')
 
-        eurosLabel = Label(self.charFrame, image=IMAGES['EURO'], bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
-        eurosLabel.grid(row=4, column=0)
-        self.euros = EditorEntry(self.charFrame, width=6, onTextChanged=self.onStatModified, constraint="length,int")
-        self.euros.grid(row=4, column=1, sticky='E')
-
-        potionLabel = Label(potionFrame, image=IMAGES['POTION'], bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
-        potionLabel.grid(row=3, column=0)
-        self.potions = EditorEntry(potionFrame, width=3, onTextChanged=self.onStatModified, constraint="length,int")
-        self.potions.grid(row=3, column=1, sticky='E', pady=16)
-
-        self.save = Button(master, text="Save", width=10, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
+        self.save = Button(charFrame, text="Save", width=10, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=FLAT, command=self.saveData)
         self.save.grid(columnspan=2)
 
-        self.children = self.charFrame.winfo_children()
+        self.children = charFrame.winfo_children()
         setChildren(self.children, False)
 
     def updateWidgets(self, character):
@@ -140,8 +144,16 @@ class StatWindow:
         self.strength.set(character.strength)
         self.dexterity.set(character.dexterity)
         self.wisdom.set(character.wisdom)
-        self.euros.set(character.euros)
-        self.potions.set(character.potions)
+        if character.NAME == "Toshe":
+            self.euros['state'] = NORMAL
+            self.euros.set(character.euros)
+            self.potions['state'] = NORMAL
+            self.potions.set(character.potions)
+        else:
+            self.euros.set("")
+            self.euros['state'] = DISABLED
+            self.potions.set("")
+            self.potions['state'] = DISABLED
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=DISABLED)
 
     def onStatModified(self, widget):
@@ -153,8 +165,9 @@ class StatWindow:
             character.strength = int(self.strength.get())
             character.dexterity = int(self.dexterity.get())
             character.wisdom = int(self.wisdom.get())
-            character.euros = int(self.euros.get())
-            character.potions = int(self.potions.get())
+            if character.NAME == "Toshe":
+                character.euros = int(self.euros.get())
+                character.potions = int(self.potions.get())
 
         with open(self.path, "r") as gameFile:
             character = pickle.load(gameFile)
@@ -954,7 +967,7 @@ class MainWindow:
         with open(self.stats.path, "r") as gameFile:
             character = pickle.load(gameFile)
         self.stats.updateWidgets(findCharacterByName(character, self.charVar.get()))
-        self.stats.charFrame.config(text="{name}'s Stats".format(name=self.charVar.get()))
+        self.stats.statsFrame.config(text="{name}'s Stats".format(name=self.charVar.get()))
 
     def createMenu(self, master):
         menubar = Menu(master)
