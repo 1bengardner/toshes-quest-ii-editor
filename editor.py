@@ -766,7 +766,6 @@ class EditWindow(object):
         character.flags = self.flags
         with open(self.path, "w") as gameFile:
             pickle.dump(character, gameFile)
-        print "Saved flags."
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=DISABLED)
         self.unsaved.grid_remove()
         
@@ -865,6 +864,10 @@ class FlagsWindow(EditWindow):
             self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
             self.unsaved.grid()
 
+    def saveData(self):
+        super(FlagsWindow, self).saveData()
+        print "Saved flags."
+
 class KillsWindow(EditWindow):
     def __init__(self, master):
         super(KillsWindow, self).__init__(master)
@@ -903,6 +906,10 @@ class KillsWindow(EditWindow):
             self.flags[self.killsKey][self.enemyEntry.get()] = 1
             self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
             self.unsaved.grid()
+
+    def saveData(self):
+        super(KillsWindow, self).saveData()
+        print "Saved kills."
 
 class MainWindow:
     def swapInventories(self, revert=False):
