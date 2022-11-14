@@ -674,7 +674,7 @@ class VendorWindow(ItemWindow):
         if 'Buyback Items' in character.flags:
             self.items = character.flags['Buyback Items']
         else:
-            self.items = []
+            self.items = [None, None, None, None, None, None, None, None, None]
 
 class EditWindow(object):
     def __init__(self, master):
