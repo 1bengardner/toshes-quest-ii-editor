@@ -2,7 +2,7 @@
 File: TUAStatics.py
 Author: Ben Gardner
 Created: May 25, 2020
-Created: October 30, 2022
+Created: November 13, 2022
 """
 
 
@@ -38,7 +38,7 @@ class Static:
         DEEP_WATER = "#185294"
         WOOD = "#ca7c37"
         WATER = "#b6dfff"
-        SAND_PATH = "#f7f38d"
+        SAND_PATH = "#f5dbab"
         SKY = "#dcedee"
         TOWN_PATH = "#e2c86b"
         HERCEG_WALL = "#f8ebbe"
@@ -51,10 +51,10 @@ class Static:
         STONE_MOUNTAIN = "#d1d8d6"
         FIRE_PATH = "#ff6826"
         BURNT_WALL = "#5f392d"
-        LAB_WALL = "#baa4b6"
+        LAB_PATH = "#f2f1e1"
         ROCK_WALL = "#d7c9a8"
         PEC_WALL = ROCK_WALL
-        PRISTINA_WALL = "#f2dbf2"
+        PRISTINA_WALL = "#ede4ed"
         TRAF_CAFE_PATH = "#e5198e"
         TRAF_CAFE_WALL = "#f5cfe2"
         STONE_PATH = "#626258"
@@ -62,7 +62,7 @@ class Static:
         ALBANIAN_PATH = "#e98a1a"
         ALBANIAN_DUNES = "#e8d0b4"
         CASTLE_PATH = "#db6e3f"
-        CASTLE_WALL = "#f6cc84"
+        CASTLE_WALL = "#8f8875"
         MEADOW = "#59ea37"
         ATHENS_WALL = "#f3d3b9"
         MACEDONIA = "#a5aae6"
@@ -87,19 +87,19 @@ class Static:
         "Herceg Novi": {
             "fg": HexColors.TOWN_PATH,
             "bg": HexColors.HERCEG_WALL},
-        "Herceg Bluffs": {
+        "Billowing Bluffs": {
             "fg": HexColors.DIRT_PATH,
             "bg": HexColors.SKY},
         "Igalo": {
             "fg": HexColors.TOWN_PATH,
             "bg": HexColors.IGALO_WALL},
-        "Herceg Fields": {
+        "Frolicking Fields": {
             "fg": HexColors.PLAINS,
             "bg": HexColors.FOREST},
         "Black Mountain": {
             "fg": HexColors.LIT_PATH,
             "bg": HexColors.DARKNESS},
-        "Mojkovac Summit": {
+        "Summit of Presage": {
             "fg": HexColors.FOREST,
             "bg": HexColors.SKY},
         "Mojkovac Valley": {
@@ -118,8 +118,8 @@ class Static:
             "fg": HexColors.DIRT_PATH,
             "bg": HexColors.ROCK_WALL},
         "The Secret Laboratory": {
-            "fg": HexColors.LIT_PATH,
-            "bg": HexColors.LAB_WALL},
+            "fg": HexColors.LAB_PATH,
+            "bg": HexColors.DARKNESS},
         "Pec": {
             "fg": HexColors.TOWN_PATH,
             "bg": HexColors.PEC_WALL},

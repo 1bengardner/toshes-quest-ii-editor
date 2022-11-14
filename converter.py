@@ -3,6 +3,26 @@
 
 import pickle
 
+def updateChangedAreaNames(character):
+    changed = False
+    changedAreas = [
+        ("Herceg Fields",
+         "Frolicking Fields"),
+        ("Herceg Bluffs",
+         "Billowing Bluffs"),
+        ("Mojkovac Summit",
+         "Summit of Presage"),
+    ]
+    for area in changedAreas:
+        if area[0] in character.flags['Discovered Areas']:
+            if area[1] not in character.flags['Discovered Areas']:
+                character.flags['Discovered Areas'][area[1]] = character.flags['Discovered Areas'][area[0]]
+                character.flags['Marked Areas'][area[1]] = character.flags['Marked Areas'][area[0]]
+            del character.flags['Discovered Areas'][area[0]]
+            del character.flags['Marked Areas'][area[0]]
+            changed = True
+    return changed
+
 def update(gameFile, path):
     changed = False
     character = pickle.load(gameFile)
@@ -34,7 +54,10 @@ def update(gameFile, path):
         for mercenary in character.mercenaries:
             setattr(mercenary, "potions", 0)
         changed = True
-            
+    if not hasattr(character, "checkpoint"):
+        setattr(character, "checkpoint", None)
+        changed = True
+    changed = updateChangedAreaNames(character) or changed
     with open(path, "w") as gameFile:
         pickle.dump(character, gameFile)
         
@@ -49,11 +72,11 @@ if __name__ == "__main__":
         try:
             path = "saves\\"+fileName+".tq"
             with open(path, "r") as gameFile:
-                update(gameFile, path)
+                changed = update(gameFile, path)
         except:
             path = "saves\\"+fileName+".toshe"
             with open(path, "r") as gameFile:
-                update(gameFile, fileName)
+                changed = update(gameFile, fileName)
         print
         if changed == "error":
             raw_input(fileName+" could not be updated. The file format is probably too old.")

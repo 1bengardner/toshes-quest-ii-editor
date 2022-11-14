@@ -2,7 +2,7 @@
 File: TUASound.py
 Author: Ben Gardner
 Created: September 6, 2013
-Revised: November 8, 2022
+Revised: November 13, 2022
 """
 
 
@@ -36,6 +36,8 @@ class Sound:
                        "Mercenary Up": "FX-Discover",
                        "New Skill": "FX-Discover",
                        "Deal Damage": "FX-Hit",
+                       "Wand Attack": "FX-Cast",
+                       "Bow Attack": "FX-Shoot",
                        "Take Damage": "FX-Struck",
                        "Heal": "FX-Rise",
                        "Critical Strike": "FX-Critical",
@@ -49,6 +51,7 @@ class Sound:
                        "Select Option": "FX-Select",
                        "Inventory": "FX-Switch",
                        "Return": "FX-Toss",
+                       "Cancel": "FX-Toss",
                        "Select Item": "FX-Touch",
                        "Equip": "FX-Equip",
                        "Buy": "FX-Collect",
@@ -123,8 +126,12 @@ class Sound:
         self.writePreferences()
         
     def writePreferences(self):
-        with open("preferences.tqp", "w") as config:
+        try:
+            with open("prefs\\preferences.tqp", "r") as existingPreferences:
+                preferences = pickle.load(existingPreferences)
+        except IOError:
             preferences = Preferences()
-            preferences.musicOn = mixer.music.get_volume() > 0
-            preferences.sfxOn = not self.sfxMuted
-            pickle.dump(preferences, config)
+        preferences.musicOn = mixer.music.get_volume() > 0
+        preferences.sfxOn = not self.sfxMuted
+        with open("prefs\\preferences.tqp", "w") as preferencesFile:
+            pickle.dump(preferences, preferencesFile)

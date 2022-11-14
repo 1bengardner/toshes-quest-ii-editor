@@ -2,7 +2,7 @@
 File: TUAEasternKosovo.py
 Author: Ben Gardner
 Created: April 1, 2014
-Revised: October 21, 2022
+Revised: November 14, 2022
 """
 
 
@@ -13,7 +13,7 @@ from TUAStatics import Static
 class EasternKosovo:
 
     name = "Eastern Kosovo"
-    audio = "Hummingbird"
+    audio = "Nose Honk"
 
     def __init__(self, character):
         self.TREE_ITEMS = [
@@ -113,6 +113,8 @@ class EasternKosovo:
                            gate: {}
                            }
 
+        self.nookNpc = None
+
     def setTreeEvent(self):
         self.c.flags['Tree Roll'] = random.randint(1, 100)
         self.c.flags['Tree Item'] = random.choice(self.TREE_ITEMS)
@@ -194,7 +196,8 @@ class EasternKosovo:
             self.c.flags['In Battle'] = True
             self.view = "battle"
             return self.actions({'enemy': "General Octavius",
-                                 'mercenaries': self.c.mercenaries})
+                                 'mercenaries': self.c.mercenaries,
+                                 'flash': True,})
         if "In Battle" in self.c.flags:
             del self.c.flags['In Battle']
         return self.actions()
@@ -423,15 +426,17 @@ class EasternKosovo:
         self.imageIndex = 14
         self.text = None
         self.helpText = None
-        if random.randint(1, 100) == 100:
+        if self.nookNpc is None and random.randint(1, 100) == 100 or self.nookNpc == "Old Nigel":
             self.imageIndex = 15
             npc = "Old Nigel"
+            self.nookNpc = "Old Nigel"
             skill1 = "Fling Dung"
             skill2 = "Smoke Bomb"
             skillPrice1 = 20000
             skillPrice2 = 100000
         else:
             npc = "Ica"
+            self.nookNpc = "Ica"
             skill1 = "Sap Shot"
             skill2 = "Bullseye Bolt"
             skillPrice1 = 500

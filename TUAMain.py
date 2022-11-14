@@ -2,7 +2,7 @@
 File: TUAMain.py
 Author: Ben Gardner
 Created: January 14, 2013
-Revised: November 6, 2022
+Revised: November 13, 2022
 """
 
 
@@ -23,6 +23,7 @@ from TUACharacter import Character
 from TUABattle import Battle
 
 from TUASound import Sound
+from TUAPreferences import Preferences
 
 from TUAAdriaticSea import AdriaticSea
 from TUABoat import Boat
@@ -67,6 +68,7 @@ from TUAFartooqHold import FartooqHold
 from TUAYaouwVolcano import YaouwVolcano
 from TUADuneHotsPeak import DuneHotsPeak
 from TUALairOfTheMagi import LairOfTheMagi
+from TUAIgaloCathedral import IgaloCathedral
 
 
 class Main:
@@ -145,6 +147,15 @@ class Main:
         self.populateAreas()
         self.buyback = False
         self.sound = Sound()
+        self.towns = set([
+            "Herceg Novi",
+            "Igalo",
+            "Mojkovac Valley",
+            "Pec",
+            "Pristina",
+            "Rumadan Village",
+            "Athens",
+        ])
 
     def markMap(self, xy = None):
         marked = self.character.flags['Marked Areas'][self.currentArea.name]
@@ -186,10 +197,7 @@ class Main:
         self.fileName = fileName
         with open("saves\\"+self.fileName+".tq", "r") as gameFile:
             self.character = pickle.load(gameFile)
-            self.currentArea = self.character.area(self.character)
-            self.x = self.character.x
-            self.y = self.character.y
-            self.initializeDefaultBattle()
+        self.initGame()
         self.sound.playSound(self.sound.sounds['Load'])
 
     def startNewGame(self, fileName):
@@ -211,23 +219,40 @@ class Main:
                                    {'Kills': {},
                                     'Discovered Areas': {},
                                     'Marked Areas': {},
-                                    'Config': {'Automap On': 0}},
+                                    'Config': {'Automap On': 1}},
                                    self.areas['Adriatic Sea'],
                                    STARTING_X, STARTING_Y,
                                    0)
+        self.initGame()
+        self.saveGame()
+
+    def initGame(self):
         self.currentArea = self.character.area(self.character)
         self.x = self.character.x
         self.y = self.character.y
-        self.saveGame()
         self.initializeDefaultBattle()
 
-    def saveGame(self):
+    def saveLocation(self):
         self.character.area = self.currentArea.__class__
         self.character.x = self.x
         self.character.y = self.y
+
+    def saveGame(self):
+        self.saveLocation()
         with open("saves\\"+self.fileName+".tq", "w") as gameFile:
             pickle.dump(self.character, gameFile)
         self.sound.playSound(self.sound.sounds['Save'])
+        self.writeGameToPreferences()
+
+    def writeGameToPreferences(self):
+        try:
+            with open("prefs\\recent_games.tqp", "r") as existingPreferences:
+                preferences = pickle.load(existingPreferences)
+        except IOError:
+            preferences = Preferences()
+        preferences.recentCharacters[self.fileName.capitalize()] = self.character
+        with open("prefs\\recent_games.tqp", "w") as preferencesFile:
+            pickle.dump(preferences, preferencesFile)
 
     def populateAreas(self):
         self.areas = {'Adriatic Sea': AdriaticSea,
@@ -272,7 +297,9 @@ class Main:
                       'Fartooq Hold': FartooqHold,
                       'Yaouw Volcano': YaouwVolcano,
                       'Dune Hots Peak': DuneHotsPeak,
-                      'Lair of the Magi': LairOfTheMagi}
+                      'Lair of the Magi': LairOfTheMagi,
+                      'Igalo Cathedral': IgaloCathedral,
+                      }
 
     def populateWeapons(self):
         with open("data\\weapondata.txt", "r") as weaponFile:
@@ -592,6 +619,7 @@ class Main:
                 self.character)
             self.x, self.y = interfaceActions['coordinates']
             self.sound.playSound(self.sound.sounds['Warp'])
+            self.updateCheckpoint(interfaceActions['area'])
             return self.getInterfaceActions()
         elif interfaceActions['view'] == "battle":
             interfaceActions['menu'] = None
@@ -702,6 +730,12 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
             self.enabledDirections.add("right")
         if self.currentArea.spots[self.y + 1][self.x]:
             self.enabledDirections.add("down")
+
+    def updateCheckpoint(self, areaName):
+        if areaName in self.towns:
+            self.saveLocation()
+            self.character.checkpoint = None
+            self.character.checkpoint = deepcopy(self.character)
 
     def updateMusic(self, currentView):
         """Update the current song playing to match area music appropriately."""
@@ -827,9 +861,8 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
                 self.character.flags['Buyback Items'].remove(None)
                 self.store.remove(None)
             else:
-                del self.character.flags['Buyback Items'][
-                    len(self.character.flags['Buyback Items']) - 1]
-                del self.store[len(self.store) - 1]
+                del self.character.flags['Buyback Items'][-1]
+                del self.store[-1]
             self.character.flags['Buyback Items'].insert(
                 0,
                 self.character.items[itemIndex])

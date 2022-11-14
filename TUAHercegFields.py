@@ -2,7 +2,7 @@
 File: TUAHercegFields.py
 Author: Ben Gardner
 Created: May 26, 2013
-Revised: August 22, 2022
+Revised: November 13, 2022
 """
 
 
@@ -11,7 +11,7 @@ from TUAStatics import Static
 
 class HercegFields:
 
-    name = "Herceg Fields"
+    name = "Frolicking Fields"
     audio = "Chicken Ball"
 
     def __init__(self, character):
@@ -256,7 +256,8 @@ class HercegFields:
             self.c.flags['In Battle'] = True
             self.view = "battle"
             return self.actions({'enemy': "Dr. Grabh",
-                                 'mercenaries': self.c.mercenaries})
+                                 'mercenaries': self.c.mercenaries,
+                                 'flash': True,})
         if "In Battle" in self.c.flags:
             del self.c.flags['In Battle']
         return self.actions()
