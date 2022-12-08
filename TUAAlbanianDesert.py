@@ -2,7 +2,7 @@
 File: TUAAlbanianDesert.py
 Author: Ben Gardner
 Created: December 25, 2013
-Revised: October 25, 2022
+Revised: November 28, 2022
 """
 
 
@@ -599,7 +599,6 @@ class AlbanianDesert:
             self.c.flags['New Song'] = "Buddha"
             self.text = (npc+": Howdy, big cowboy. Wanna "+
                          "fill that noggin with knowledge?")
-            self.tempFlag = {'New Song': self.audio}
             self.menu = ["\"Yes.\"",
                          "\"No!\""]
         return self.actions()
@@ -753,7 +752,7 @@ class AlbanianDesert:
                 self.text += ("\nQendresa: Yaouw!")
                 if self.c.hasMercenary("Barrie"):
                     self.text += ("\nBarrie: That's a funny noise.")
-                    self.text += ("\nQendresa: No, in the distance." +
+                    self.text += ("\nQendresa: No, look to the horizon." +
                                   "\nQendresa points to a volcano in the distance.")
             self.c.flags['Plugged Geyser Aftermath'] = True
         elif "Oukkar" not in self.c.flags['Kills']:

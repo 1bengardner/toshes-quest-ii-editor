@@ -5,16 +5,17 @@
 File: Toshe's Quest II.py
 Author: Ben Gardner
 Created: December 25, 2012
-Revised: November 21, 2022
+Revised: December 7, 2022
 """
 
- 
+
 from Tkinter import *
 import tkFont
 import tkMessageBox
 from TUAMain import Main
 from TUADialog import OpenFileDialog
 from TUAStatics import Static
+import converter
 import random
 from datetime import datetime
 import pickle
@@ -84,7 +85,7 @@ class Window:
         
         self.newSkillLabelBottom = Label(self.newSkillFrame,
                                          text="PUMMELER'S PRECISION!",
-                                         wraplength=WINDOW_WIDTH,
+                                         wraplength=WINDOW_WIDTH-20,
                                          font=font7,
                                          bg=SKILL_BG, fg=SKILL_FG)
         self.newSkillLabelBottom.grid(row=0, rowspan=2, pady=16)
@@ -203,21 +204,36 @@ class RightFrame:
     def updateMissions(self):
         for quest, mission in self.missionLog.iteritems():
             mission.missionDetails['text'] = quest.getDetailsFor(main.character)
+            if quest.getDetailsFor(main.character):
+                mission.missionDetails.grid(sticky=W)
+                
+            
+    def pushDownMissions(self):
+        for mission in self.missionLog:
+            element = self.missionLog[mission]
+            element.grid(row=int(element.grid_info()['row']) + 1)
 
-    def addMission(self, quest):
+    def addMission(self, quest, pushToTop=True):
         self.noMissions.grid_remove()
         
         missionFrame = Frame(self.missions,
             bg=MEDIUMBEIGE,
-            pady=2,)
+            pady=2,
+            bd=2,)
         missionFrame.grid(sticky=EW, padx=2, pady=2)
+        if pushToTop:
+            self.pushDownMissions()
+            missionFrame.grid(row=0)
         missionFrame.columnconfigure(0, weight=1)
         
         missionTitle = Label(missionFrame,
             bg=MEDIUMBEIGE,
-            text=quest.TITLE,
+            text=quest.TITLE + (" (Repeatable)" if quest.REPEATABLE else ""),
             font=italicFont2,
-            wraplength=FRAME_C_WIDTH-20,)
+            wraplength=FRAME_C_WIDTH-20,
+            justify=LEFT,)
+        if quest.OPTIONAL:
+            missionTitle['fg'] = BROWN
         missionTitle.grid(sticky=W)
         missionDescription = Label(missionFrame,
             bg=MEDIUMBEIGE,
@@ -232,7 +248,8 @@ class RightFrame:
             font=font1,
             wraplength=FRAME_C_WIDTH-20,
             justify=LEFT,)
-        missionFrame.missionDetails.grid(sticky=W)
+        if quest.getDetailsFor(main.character):
+            missionFrame.missionDetails.grid(sticky=W)
         
         self.missionLog[quest] = missionFrame
 
@@ -244,9 +261,17 @@ class RightFrame:
         self.noMissions.grid()
 
     def markMission(self, quest):
+        self.pushDownMissions()
+        self.missionLog[quest].grid(row=0)
         self.missionLog[quest].config(
             relief=GROOVE,
-            bd=2,
+        )
+
+    def unmarkMission(self, quest):
+        self.pushDownMissions()
+        self.missionLog[quest].grid(row=0)
+        self.missionLog[quest].config(
+            relief=FLAT,
         )
 
     def removeMission(self, quest):
@@ -325,7 +350,7 @@ class TopLeftFrame:
                     if str >= 50:
                         if dex >= 50:
                             if wis >= 50:
-                                return "Journeyman"
+                                return "Veteran"
                             return "Ranger"
                         elif wis >= 50:
                             return "Monk"
@@ -351,8 +376,10 @@ class TopLeftFrame:
                         return "Trainee Mage"
                     elif dex >= 25:
                         return "Trainee Archer"
-                    else:
+                    elif character.level > 1:
                         return "Trainee"
+                    else:
+                        return "Castaway"
 
                 MAX_LINE_LENGTH = 24
                 lines = [
@@ -476,15 +503,15 @@ class TopLeftFrame:
         self.dropButton.grid_remove()
 
     def clickEquipButton(self):
-        main.character.equip(self.v1.get())
+        if main.view == "battle":
+            interfaceActions = main.equipItem(self.v1.get())
+            updateInterface(interfaceActions)
+        else:
+            main.character.equip(self.v1.get())
+            main.sound.playSound(main.sound.sounds['Equip'])
         window.topFrame.topRightFrame.updateOtherStats()
         self.equipButton['state'] = DISABLED
         self.updateInventory()
-        if main.view == "battle":
-            interfaceActions = main.equipItem()
-            window.bottomFrame.bottomRightFrame.clickBackButton()
-            updateInterface(interfaceActions)
-        main.sound.playSound(main.sound.sounds['Equip'])
         
     def clickSellButton(self):
         main.sell(self.v1.get())
@@ -492,6 +519,7 @@ class TopLeftFrame:
         self.updateInventory()
         window.topFrame.topRightFrame.buyButton['state'] = DISABLED
         window.topFrame.topRightFrame.updateStore()
+        window.topFrame.topRightFrame.updateOtherStats()
 
     def clickDropButton(self):
         if self.v1.get() in main.character.equippedItemIndices.values():
@@ -596,6 +624,8 @@ class TopCenterFrame:
                                      variable=self.playMusic,
                                      command=main.sound.muteMusic)
         self.musicButton.grid(row=0, padx=16, sticky=W)
+        self.musicButton.bind_all("<Control-m>", lambda _: self.musicButton.invoke())
+        self.musicButton.bind_all("<Control-M>", lambda _: self.musicButton.invoke())
         self.playSfx = BooleanVar(value=True)
         self.sfxButton = Checkbutton(master, indicatoron=False, bg=BUTTON_BG,
                                      relief=SUNKEN, image=sfxImage,
@@ -611,6 +641,8 @@ class TopCenterFrame:
         except IOError:
             pass
         self.sfxButton.grid(row=0, padx=40, sticky=W)
+        self.sfxButton.bind_all("<Alt-m>", lambda _: self.sfxButton.invoke())
+        self.sfxButton.bind_all("<Alt-M>", lambda _: self.sfxButton.invoke())
         self.titleLabel = Label(master, text="Toshe's Quest II", font=font6,
                                 bg=DEFAULT_BG, bd=0)
         self.titleLabel.grid(row=0, pady=6)
@@ -796,7 +828,7 @@ class TopCenterFrame:
         d = OpenFileDialog(root, "Start Game")
         if not hasattr(d, 'entryValue'):
             window.bottomFrame.bottomLeftFrame.insertOutput(
-                "Come on. I promise not to bite.")
+                "Turtle: Come on. I promise not to bite.")
             return
         self.tryToLoadFile(d.entryValue)
 
@@ -807,16 +839,28 @@ class TopCenterFrame:
             self.createFile(name)
         except AttributeError:
             window.bottomFrame.bottomLeftFrame.insertOutput(
+                "Turtle: " +
                 name +
                 ", some vital information is missing from your file." +
-                "\nPerhaps this can be remedied with a conversion.")
-        except (EOFError, ValueError, KeyError, IndexError, ImportError):
-            window.bottomFrame.bottomLeftFrame.insertOutput(
-                name +
-                ", your file is completely garbled! This is quite unfortunate.")
-        except ImportError:
-            window.bottomFrame.bottomLeftFrame.insertOutput(
-                "I cannot read this file at all! What language is this?")
+                " Perhaps this can be remedied with a conversion.")
+            path = "saves\\"+name+".tq"
+            with open(path, "r") as gameFile:
+                changed = converter.update(gameFile, path)
+            if changed:
+                window.bottomFrame.bottomLeftFrame.insertOutput(
+                    "Turtle: " +
+                    name +
+                    ", your file has been successfully converted!")
+                self.tryToLoadFile(name)
+        # except (EOFError, ValueError, KeyError, IndexError, ImportError):
+            # window.bottomFrame.bottomLeftFrame.insertOutput(
+                # "Turtle: " +
+                # name +
+                # ", your file is completely garbled! This is quite unfortunate.")
+        # except ImportError:
+            # window.bottomFrame.bottomLeftFrame.insertOutput(
+                # "Turtle: " +
+                # "I cannot read this file at all! What language is this?")
 
     def loadFile(self, name=None):
         if not name:
@@ -853,7 +897,7 @@ class TopCenterFrame:
             window.topFrame.topRightFrame.logButton.invoke()
         window.rightFrame.clearMissions()
         for quest in main.character.quests:
-            window.rightFrame.addMission(quest)
+            window.rightFrame.addMission(quest, pushToTop=False)
             if quest.isCompletedBy(main.character):
                 window.rightFrame.markMission(quest)
         
@@ -919,31 +963,55 @@ class TopRightFrame:
             wrap=WORD,
             bd=0,)
         newsContent.tag_config("title", font=font3)
-        newsContent.tag_config("section", font=italicFont2)
-        newsContent.tag_config("emphasis", font=italicFont1)
+        newsContent.tag_config("section", font=italicFont2, spacing3=2)
+        newsContent.tag_config("emphasis", font=boldFont1)
 
         newsContent.insert(END, "Content Updates", ("section"))
         newsContent.insert(END,
 """
-The remaining GUARDIAN BEASTS have been unleashed! Find all three—Earth, Water and Fire—and navigate their labyrithine abodes to destroy them once and for all.
+The remaining """)
+        newsContent.insert(END, "Guardian Beasts", ("emphasis"))
+        newsContent.insert(END,
+""" have been unleashed! Find all three—Earth, Water and Fire—and navigate their labyrithine abodes to challenge them. Prepare yourself for some tough battles!
 
-The lair of the dark commander NIPLIN has been spotted. Scope him out to score some sweet loot, if you can take him on. However, you may have to solve a little puzzle first.
+The lair of the dark commander """)
+        newsContent.insert(END, "Niplin", ("emphasis"))
+        newsContent.insert(END,
+""" has been spotted. Scope him out to score some sweet loot, if you can take him on. However, you may have to solve a little puzzle first.
 
 """)
         newsContent.insert(END, "Feature Updates", ("section"))
         newsContent.insert(END,
 """
-Select a character with the RECENT GAMES list. Hit the ground running with a single click: no more typing your name in!
+Select a character with the """)
+        newsContent.insert(END, "Recent Games", ("emphasis"))
+        newsContent.insert(END,
+""" list. Hit the ground running with a single click: no more typing your name in!
 
-Find your way around with the new MAP. Leave it open for a top-down view of the current area. Click to mark important tiles to remember them later.
+Find your way around with the new """)
+        newsContent.insert(END, "Map", ("emphasis"))
+        newsContent.insert(END,
+""". Leave it open for a top-down view of the current area. Click to mark important tiles to remember them later.
 
-Are you thirsty? Quench that desire with a POTION, and heal 50 HP! All blood-bearing enemies now drop life fluid potions. Suck on that, Vampire Bat!
+Are you thirsty? Quench that desire with a """)
+        newsContent.insert(END, "potion", ("emphasis"))
+        newsContent.insert(END,
+""", and heal 50 HP! All blood-bearing enemies now drop life fluid potions. Suck on that, Vampire Bat!
 
-It's 2022 and people's screens are getting wider...that means it's time for a MISSION LOG! That's right, you can now view your current missions in your very own log, at your leisure.
+It's 2022 and people's screens are getting wider...that means it's time for a """)
+        newsContent.insert(END, "Mission Log", ("emphasis"))
+        newsContent.insert(END,
+"""! That's right, you can now view your current missions in your very own log, at your leisure.
 
-Zounds, we have SOUNDS! You can now toggle sound effects, as well as music.
+Zounds, we have """)
+        newsContent.insert(END, "sounds", ("emphasis"))
+        newsContent.insert(END,
+"""! You can now toggle sound effects, as well as music.
 
-Game over? Forget to save? Save in the wrong place? Don't fret. You can now RESUME FROM TOWN.""")
+Game over? Forget to save? Save in the wrong place? Don't fret. You can now """)
+        newsContent.insert(END, "resume from town", ("emphasis"))
+        newsContent.insert(END,
+""".""")
         newsContent['state'] = DISABLED
         newsContent.grid(sticky=EW)
 
@@ -1095,12 +1163,12 @@ Game over? Forget to save? Save in the wrong place? Don't fret. You can now RESU
         self.potionButton = Button(self.otherStats, image=potionImage,
                                    text="104", font=font2,
                                    fg=WHITE, activeforeground=WHITE,
-                                   bg=BUTTON_BG, command=self.usePotion,
+                                   bg=BUTTON_BG, command=self.clickPotionButton,
                                    compound=CENTER, state=DISABLED)
         self.potionButton.grid(row=10, column=3, columnspan=2, sticky=E,
             padx=6)
-        self.potionButton.bind_all('p', self.usePotion)
-        self.potionButton.bind_all('P', self.usePotion)
+        self.potionButton.bind_all('p', self.clickPotionButton)
+        self.potionButton.bind_all('P', self.clickPotionButton)
 
         self.vBorderLabel1 = Label(self.otherStats, image=vBorderImage1,
                                   bg=DEFAULT_BG, bd=0)
@@ -1198,15 +1266,16 @@ Game over? Forget to save? Save in the wrong place? Don't fret. You can now RESU
         window.topFrame.topLeftFrame.updateInventory()
         requireExitConfirmation(True)
 
-    def usePotion(self, event=None):
+    def clickPotionButton(self, event=None):
         if (self.potionButton['state'] == NORMAL):
-            main.character.hp += 50
-            main.character.potions -= 1
-            message = "You consume a vial full of life fluid."
-            window.bottomFrame.bottomLeftFrame.insertOutput(message)
-            self.updateOtherStats()
-            window.topFrame.topLeftFrame.updateVitalStats()
-            main.sound.playSound(main.sound.sounds['Drink'])
+            if main.view == "battle":
+                interfaceActions = main.drinkPotion()
+                updateInterface(interfaceActions)
+            else:
+                message = main.usePotion()
+                self.updateOtherStats()
+                window.topFrame.topLeftFrame.updateVitalStats()
+                window.bottomFrame.bottomLeftFrame.insertOutput(message)
 
     def clickBuyButton(self):
         main.buy(self.v2.get())
@@ -1284,8 +1353,8 @@ Game over? Forget to save? Save in the wrong place? Don't fret. You can now RESU
                                           bg=DEFAULT_BG, fg=BLACK)
         
         state = NORMAL if c.potions > 0 and (
-            main.view in ("travel", "inventory")) else DISABLED
-        font = font3 if c.potions < 100 else font1
+            main.view in ("travel", "inventory", "battle")) else DISABLED
+        font = font2 if c.potions < 100 else font1
         text = c.potions if c.potions > 0 else " "
         self.potionButton.config(state=state, font=font, text=text)
 
@@ -1353,8 +1422,8 @@ class BottomLeftFrame:
         self.outputBox.tag_config("grey", foreground=GREY)
         self.outputBox.tag_config("highlight", foreground=BLACK)
         self.outputBox.insert(END,
-                              ("Welcome. Click on me to "+
-                               "embark on a quest."), "italicize")
+            "Turtle: Welcome. Click on me to embark on a quest.",
+            ("grey", "highlight"))
         self.outputBox['state'] = DISABLED
         
         self.outputScrollbar = Scrollbar(master, bg=DEFAULT_BG,
@@ -2056,6 +2125,9 @@ def updateInterface(updates):
         window.gridQuestFrame("MISSION!")
     if ('completed quest' in updates):
         window.rightFrame.markMission(updates['completed quest'])
+    if ('uncompleted quests' in updates):
+        for quest in updates['uncompleted quests']:
+            window.rightFrame.unmarkMission(quest)
     if ('remove quest' in updates):
         window.rightFrame.removeMission(updates['remove quest'])
         window.gridQuestFrame("MISSION\nCOMPLETE!")
@@ -2121,6 +2193,8 @@ def enableBattleView():
     bottomFrame.attackButton['state'] = NORMAL
     bottomFrame.defendButton['state'] = NORMAL
     bottomFrame.fleeButton['state'] = NORMAL
+    bottomFrame.centerButton.config(image=inventoryImage,
+                                    command=bottomFrame.clickInventoryButton)
     bottomFrame.centerButton.grid(pady=(0, 34))
     bottomFrame.centerButton.bind_all('i', bottomFrame.clickInventoryButton)
     bottomFrame.centerButton.bind_all('I', bottomFrame.clickInventoryButton)
@@ -2132,6 +2206,7 @@ def enableBattleView():
     bottomFrame.fleeButton.grid()
     bottomFrame.skillButton.grid()
     
+    bottomFrame.enableMenuBox()
     bottomFrame.bindSkills()
     
     skills = []
@@ -2230,6 +2305,7 @@ def enableInventoryView():
     leftFrame.dropButton.grid_remove()
     leftFrame.equipButton.grid()
     leftFrame.equipButton['state'] = DISABLED
+    bottomFrame.skillButton['state'] = DISABLED
 
 
 def enableStoreView():
@@ -2262,6 +2338,11 @@ def enableStoreView():
     bottomFrame.fleeButton.grid_remove()
     bottomFrame.skillButton.grid_remove()
     bottomFrame.centerButton['state'] = NORMAL
+    bottomFrame.centerButton.unbind_all('x')
+    bottomFrame.centerButton.unbind_all('X')
+    bottomFrame.centerButton.unbind_all('<BackSpace>')
+    bottomFrame.centerButton.bind_all('i', bottomFrame.clickInventoryButton)
+    bottomFrame.centerButton.bind_all('I', bottomFrame.clickInventoryButton)
 
 
 def enableDropItemView():
@@ -2538,6 +2619,7 @@ root = Tk()
 # Initialize variables
 font1 = tkFont.Font(family="Garamond", size=10)
 italicFont1 = tkFont.Font(family="Garamond", size=10, slant="italic")
+boldFont1 = tkFont.Font(family="Garamond", size=10, weight="bold")
 font2 = tkFont.Font(family="Garamond", size=11)
 italicFont2 = tkFont.Font(family="Garamond", size=11, slant="italic", weight="bold")
 font3 = tkFont.Font(family="Garamond", size=12, weight="bold")

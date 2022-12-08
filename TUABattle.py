@@ -2,7 +2,7 @@
 File: TUABattle.py
 Author: Ben Gardner
 Created: March 24, 2013
-Revised: November 16, 2022
+Revised: December 6, 2022
 """
 
 
@@ -122,7 +122,7 @@ class Battle(object):
             actions.update(newActions)
         return actions
 
-    def attack(self, skill):
+    def attack(self, skill, successfulTurnCallback=lambda: None):
         """Make Toshe attack the enemy with a specified skill."""
         self.sounds = []
         self.text = ""
@@ -132,37 +132,18 @@ class Battle(object):
         elif self.mainCharacter.ep < skill.EP_USED:
             self.text += "You do not have enough EP!"
         else:
-            if not self.isStunned(self.mainCharacter,
-                                self.charactersFlags[self.mainCharacter.NAME]):
-                self.checkConsumables()
-                self.mainCharacter.ep -= skill.EP_USED
-            if self.characterFirst:
-                self.takeCharacterTurn(skill)
+            turns = [
+                lambda: self.takeCharacterTurn(skill, successfulTurnCallback),
+                self.takeEnemyTurn]
+            if not self.characterFirst:
+                turns.reverse()
+            for turn in turns:
+                turn()
                 if self.checkDeath():
                     droppedItem = self.checkDroppedItem()
                     if droppedItem and not self.mainCharacter.isDead():
                         return self.actions({'item': droppedItem})
                     return self.actions()
-                self.takeEnemyTurn()
-                if self.checkDeath():
-                    droppedItem = self.checkDroppedItem()
-                    if droppedItem and not self.mainCharacter.isDead():
-                        return self.actions({'item': droppedItem})
-                    return self.actions()
-            else:
-                self.takeEnemyTurn()
-                if self.checkDeath():
-                    droppedItem = self.checkDroppedItem()
-                    if droppedItem and not self.mainCharacter.isDead():
-                        return self.actions({'item': droppedItem})
-                    return self.actions()
-                self.takeCharacterTurn(skill)
-                if self.checkDeath():
-                    droppedItem = self.checkDroppedItem()
-                    if droppedItem and not self.mainCharacter.isDead():
-                        return self.actions({'item': droppedItem})
-                    return self.actions()
-
             self.tosheAlertMessages()
 
         return self.actions()
@@ -178,7 +159,7 @@ class Battle(object):
             self.text += "There's nowhere to run."
 
         elif self.isStunned(self.mainCharacter,
-                                self.charactersFlags[self.mainCharacter.NAME]):
+                            self.charactersFlags[self.mainCharacter.NAME]):
             self.text += "You cannot flee right now."
 
         else:
@@ -209,11 +190,15 @@ class Battle(object):
 
         return self.actions()
 
-    def takeCharacterTurn(self, skill):
+    def takeCharacterTurn(self, skill, successfulTurnCallback=lambda: None):
         """Allow Toshe and his party to attack the enemy."""
+        if not self.isStunned(self.mainCharacter,
+                              self.charactersFlags[self.mainCharacter.NAME]):
+            self.checkConsumables()
+            self.mainCharacter.ep -= skill.EP_USED
         self.takeTurn(skill, self.mainCharacter, self.enemy,
                       self.charactersFlags[self.mainCharacter.NAME],
-                      self.enemyFlags)
+                      self.enemyFlags, successfulTurnCallback)
         for character in self.auxiliaryCharacters:
             skill = self.selectRandomElement(character.skills)
             self.takeTurn(skill, character, self.enemy,
@@ -228,8 +213,15 @@ class Battle(object):
         defender = defenders[defenderIndex]
         self.takeTurn(skill, self.enemy, defender, self.enemyFlags,
                       self.charactersFlags[defender.NAME])
+                      
+    def getPanning(self, affectedCombatant):
+        return {
+            self.mainCharacter: (1, 0.25),
+            self.enemy: (0.25, 1)
+        }[affectedCombatant]
 
-    def takeTurn(self, skill, attacker, defender, attackerFlags, defenderFlags):
+    def takeTurn(self, skill, attacker, defender, attackerFlags, defenderFlags,
+        successfulTurnCallback=lambda: None):
         """Run through one turn of the battle.
 
         The specified attacker will attack the defender with its chosen skill
@@ -263,7 +255,7 @@ class Battle(object):
                     skill = copy(skill)
                     skill.MULTIPLIER -= 1
                     self.takeTurn(skill, attacker, defender, attackerFlags,
-                                  defenderFlags)
+                                  defenderFlags, successfulTurnCallback)
             elif skill.CATEGORY == "Life Steal Damage":
                 damage = (attacker.damage * self.randomChance())
             elif "Damage" in skill.CATEGORY:
@@ -301,9 +293,6 @@ class Battle(object):
                 damage -= defender.defence / 3
 
             damage = self.adjustedDamage(damage)
-                
-            if skill.CATEGORY == "Life Steal Damage":
-                healing = damage * skill.MULTIPLIER / 100.
 
             # Modify damage based on defender's reduction values
             if damage:
@@ -329,13 +318,18 @@ class Battle(object):
                       (hasattr(attacker, "equippedWeapon") and
                        attacker.equippedWeapon.ELEMENT == "Frostfire" and
                        skill.ELEMENT == "Physical")):
-                    damage = damage/2. * (100-defender.fireReduction) / 100.\
-                             + damage/2. * (100-defender.waterReduction) / 100.
+                    damage = (max(0, damage/2. * (100-defender.fireReduction)
+                        / 100.)
+                        + max(0, damage/2. * (100-defender.waterReduction)
+                        / 100.))
                 elif not (hasattr(attacker, "equippedWeapon") and
                           attacker.equippedWeapon.CATEGORY == "Wand"):
                     damage *= (100-defender.physicalReduction) / 100.
 
             damage = self.adjustedDamage(damage)
+                
+            if skill.CATEGORY == "Life Steal Damage":
+                healing = damage * skill.MULTIPLIER / 100.
 
             # Apply damage to defender and add flags
             if not (miss or blocked) and damage is not None:
@@ -436,54 +430,82 @@ class Battle(object):
                             defender, "hp")+skill.TARGET_EFFECTS['hp'])
                         
             # Add potential status ailments along with corresponding text
-            if not (miss or blocked):
+            if ( damage is not None and int(damage) > 0 or
+                 skill.CATEGORY == "Miscellaneous") and not (miss or blocked):
                 if skill.ELEMENT == "Earth" and ("Grounded" not in
                                                  defenderFlags):
-                    if self.roll() <= 20:
+                    if self.roll() <= 40:
                         self.text += defender.NAME+" was grounded!\n"
                         defenderFlags.add("Grounded")
+                        if defender in (self.mainCharacter, self.enemy):
+                            self.sounds.append({
+                                "Name": "Grounded",
+                                "Panning": self.getPanning(defender)})
                 elif (skill.ELEMENT == "Poison" and
                       "Poisoned" not in defenderFlags and
                       defender.LIVING):
                     self.text += defender.NAME+" was poisoned!\n"
                     defenderFlags.add("Poisoned")
+                    if defender in (self.mainCharacter, self.enemy):
+                        self.sounds.append({
+                            "Name": "Poisoned",
+                            "Panning": self.getPanning(defender)})
                 elif skill.ELEMENT == "Electricity" and ("Paralyzed" not in
                                                          defenderFlags):
-                    if self.roll() <= 10:
+                    if self.roll() <= 20:
                         self.text += defender.NAME+" was paralyzed!\n"
                         defenderFlags.add("Paralyzed")
+                        if defender in (self.mainCharacter, self.enemy):
+                            self.sounds.append({
+                                "Name": "Paralyzed",
+                                "Panning": self.getPanning(defender)})
                 elif skill.ELEMENT == "Water":
-                    if self.roll() <= 30 and damage >= defender.maxHp/3:
+                    if self.roll() <= 50 and damage >= defender.maxHp/3:
                         self.text += defender.NAME+" drowned!\n"
-                elif skill.ELEMENT == "Ice" and ("Frozen" not in
-                                                 defenderFlags):
-                    self.text += defender.NAME+" was frozen!\n"
-                    defenderFlags.add("Frozen")
-                    defenderFlags.discard("Burning")
+                        if defender in (self.mainCharacter, self.enemy):
+                            self.sounds.append({
+                                "Name": "Drowned",
+                                "Panning": self.getPanning(defender)})
                 elif ((skill.ELEMENT == "Ice" or skill.ELEMENT == "Frostfire")
                       and ("Frozen" not in defenderFlags)):
-                    if self.roll() <= 5:
+                    if self.roll() <= 20:
                         self.text += defender.NAME+" was frozen!\n"
                         defenderFlags.add("Frozen")
                         defenderFlags.discard("Burning")
+                        if defender in (self.mainCharacter, self.enemy):
+                            self.sounds.append({
+                                "Name": "Frozen",
+                                "Panning": self.getPanning(defender)})
                 elif skill.ELEMENT == "Petrification" and ("Petrified" not in
                                                            defenderFlags):
                     self.text += defender.NAME+" turned to stone!\n"
                     defenderFlags.add("Petrified")
                     defenderFlags.discard("Paralyzed")
                     defenderFlags.discard("Frozen")
+                    if defender in (self.mainCharacter, self.enemy):
+                        self.sounds.append({
+                            "Name": "Petrified",
+                            "Panning": self.getPanning(defender)})
                 elif skill.ELEMENT == "Sunder" and ("Sundered" not in
                                                     defenderFlags):
                     defenderFlags.add("Sundered")
                 elif ((skill.ELEMENT == "Fire" or skill.ELEMENT == "Frostfire")
-                      and ("Burning" not in defenderFlags) and damage):
-                    if self.roll() <= 10:
+                      and ("Burning" not in defenderFlags)):
+                    if self.roll() <= 20:
                         self.text += defender.NAME+" caught on fire!\n"
                         defenderFlags.add("Burning")
                         defenderFlags.discard("Frozen")
                         self.burnDamage = damage/4
+                        if defender in (self.mainCharacter, self.enemy):
+                            self.sounds.append({
+                                "Name": "Burning",
+                                "Panning": self.getPanning(defender)})
 
             # Make sounds
+            if skill.NAME == "Defend":
+                 self.sounds.append("Defend")
+            if skill.NAME == "Equip Item":
+                 self.sounds.append("Equip")
             if not (miss or blocked):
                 if damage is not None and int(damage) > 0:
                     if attacker == self.mainCharacter:
@@ -491,18 +513,24 @@ class Battle(object):
                             self.sounds.append("Wand Attack")
                         elif attacker.equippedWeapon.CATEGORY == "Bow":
                             self.sounds.append("Bow Attack")
+                        elif attacker.equippedWeapon.CATEGORY == "Gun":
+                            self.sounds.append("Gun Attack")
                         else:
                             self.sounds.append("Deal Damage")
                     elif defender == self.mainCharacter:
                         self.sounds.append("Take Damage")
-                elif healing is not None and int(healing) > 0 and attacker == self.mainCharacter:
-                    self.sounds.append("Heal")
+                elif healing is not None and int(healing) > 0 and attacker in (self.mainCharacter, self.enemy):
+                    self.sounds.append({
+                        "Name": "Heal",
+                        "Panning": self.getPanning(attacker)})
                 if critical and attacker == self.mainCharacter and (damage is not None and int(damage) > 0 or healing is not None and int(healing) > 0):
                     self.sounds.append("Critical Strike")
                 elif critical and defender == self.mainCharacter and damage is not None and int(damage) > 0:
                     self.sounds.append("Critical Injury")
             if blocked and not miss and defender == self.mainCharacter:
                 self.sounds.append("Block")
+
+            successfulTurnCallback()
 
         # Do actions associated with flags attached to the attacker
         self.doFlagActions(attacker, attackerFlags)
@@ -563,12 +591,20 @@ class Battle(object):
             if self.roll() <= 25:
                 flags.remove("Frozen")
                 self.text += target.NAME+" thaws.\n"
+                if target in (self.mainCharacter, self.enemy):
+                    self.sounds.append({
+                        "Name": "Break Free",
+                        "Panning": self.getPanning(target)})
             else:
                 self.text += target.NAME+" is frozen solid.\n"
         elif "Petrified" in flags:
             if self.roll() <= 25:
                 flags.remove("Petrified")
                 self.text += target.NAME+" is no longer a statue.\n"
+                if target in (self.mainCharacter, self.enemy):
+                    self.sounds.append({
+                        "Name": "Break Free",
+                        "Panning": self.getPanning(target)})
             else:
                 self.text += target.NAME+" is a statue.\n"
         elif "Paralyzed" in flags:
@@ -576,6 +612,10 @@ class Battle(object):
                 flags.remove("Paralyzed")
                 self.text += (target.NAME+" is no longer affected by "+
                               "paralysis.\n")
+                if target in (self.mainCharacter, self.enemy):
+                    self.sounds.append({
+                        "Name": "Break Free",
+                        "Panning": self.getPanning(target)})
             else:
                 self.text += target.NAME+" is paralyzed.\n"
         elif "Sundered" in flags:
@@ -584,6 +624,10 @@ class Battle(object):
         elif "Grounded" in flags:
             flags.remove("Grounded")
             self.text += target.NAME+" is breaking free.\n"
+            if target in (self.mainCharacter, self.enemy):
+                self.sounds.append({
+                    "Name": "Break Free",
+                    "Panning": self.getPanning(target)})
         if "Poisoned" in flags:
             poisonDamage = int(target.maxHp/50*self.randomChance())
             target.hp -= poisonDamage
@@ -593,6 +637,10 @@ class Battle(object):
             if self.roll() <= 25:
                 flags.remove("Burning")
                 self.text += target.NAME+" stopped burning.\n"
+                if target in (self.mainCharacter, self.enemy):
+                    self.sounds.append({
+                        "Name": "Break Free",
+                        "Panning": self.getPanning(target)})
             else:
                 burnDamage = int(self.burnDamage*self.randomChance())
                 target.hp -= burnDamage
@@ -601,6 +649,10 @@ class Battle(object):
                 
         if "Recovering Active" in flags:
             self.text += target.NAME+" is regaining composure.\n"
+            if target in (self.mainCharacter, self.enemy):
+                self.sounds.append({
+                    "Name": "Break Free",
+                    "Panning": self.getPanning(target)})
             flags.remove("Recovering Active")
         if "Recovering" in flags:
             flags.remove("Recovering")
@@ -887,6 +939,7 @@ class Battle(object):
                 if character.isDead():
                     self.text += character.NAME+" went unconscious!\n"
                     self.auxiliaryCharacters.remove(character)
+                    self.sounds.append("Dead")
         return False
 
     def checkConsumables(self):
@@ -943,21 +996,27 @@ class Battle(object):
                 self.text += "Jackpot!\n"
                 xpGained = self.enemy.XP*2
                 eurosGained = self.enemy.EUROS*2
+                self.sounds.append("Jackpot")
             elif jackpotRoll <= 5:
                 self.text += "Double Jackpot!\n"
                 xpGained = self.enemy.XP*4
                 eurosGained = self.enemy.EUROS*4
+                self.sounds.append("Jackpot")
+                self.sounds.append("Jackpot")
             # Pirate Clan Check
             elif ("Pirate Clan Reward" in self.mainCharacter.flags
                   and jackpotRoll <= 9):
                 self.text += "Pirate Jackpot!\n"
                 xpGained = self.enemy.XP*2
                 eurosGained = self.enemy.EUROS*2
+                self.sounds.append("Jackpot")
             elif ("Pirate Clan Reward" in self.mainCharacter.flags
                   and jackpotRoll <= 10):
                 self.text += "Double Pirate Jackpot!\n"
                 xpGained = self.enemy.XP*4
                 eurosGained = self.enemy.EUROS*4
+                self.sounds.append("Jackpot")
+                self.sounds.append("Jackpot")
             else:
                 xpGained = self.enemy.XP
                 eurosGained = self.enemy.EUROS
@@ -975,7 +1034,7 @@ class Battle(object):
             self.text += ("You gain "+str(xpGained)+" XP.\n"+
                           "You gain "+str(eurosGained)+" euros.\n")
             if ( eurosGained == 0 and self.enemy.LIVING
-                 and self.enemy.DEATH_HP <= 0 and self.roll() <= 10):
+                 and self.enemy.DEATH_HP <= 0 and self.roll() <= 20 - self.mainCharacter.level + self.enemy.LEVEL):
                 self.mainCharacter.potions += 1
                 self.text += ("You collect a hearty vial of life fluid.\n")
             if self.enemy.IDENTIFIER not in self.mainCharacter.flags['Kills']:

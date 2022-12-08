@@ -2,7 +2,7 @@
 File: TUAMain.py
 Author: Ben Gardner
 Created: January 14, 2013
-Revised: November 21, 2022
+Revised: December 4, 2022
 """
 
 
@@ -92,7 +92,7 @@ class Main:
         self.enemies = {}
         self.mercenaries = {}
         self.allQuests = []
-        self.completedQuests = {}
+        self.completedQuests = set()
         weaponModifiers = {
                 1: [
                     'Big',
@@ -209,6 +209,9 @@ class Main:
         self.sound.playSound(self.sound.sounds['Load'])
 
     def loadFromCheckpoint(self):
+        self.character.checkpoint.flags['Discovered Areas'] = self.character.flags['Discovered Areas']
+        self.character.checkpoint.flags['Marked Areas'] = self.character.flags['Marked Areas']
+        self.character.checkpoint.flags['Config'] = self.character.flags['Config']
         self.character = self.character.checkpoint
         self.character.checkpoint = deepcopy(self.character)
         self.initGame()
@@ -233,7 +236,10 @@ class Main:
                                    {'Kills': {},
                                     'Discovered Areas': {},
                                     'Marked Areas': {},
-                                    'Config': {'Automap On': 1}},
+                                    'Config': {
+                                        'Automap On': 1,
+                                        'Mission Log Open': 0,
+                                   }},
                                    self.areas['Adriatic Sea'],
                                    STARTING_X, STARTING_Y,
                                    0)
@@ -265,7 +271,7 @@ class Main:
                 preferences = pickle.load(existingPreferences)
         except IOError:
             preferences = Preferences()
-        preferences.recentCharacters[self.fileName.capitalize()] = self.character
+        preferences.recentCharacters[self.fileName] = self.character
         with open("prefs\\recent_games.tqp", "w") as preferencesFile:
             pickle.dump(preferences, preferencesFile)
 
@@ -500,8 +506,10 @@ class Main:
                 completionCriteria = eval(tokens[2])
                 startFlag = tokens[3]
                 endFlag = tokens[4]
+                optional = tokens[5]
+                repeatable = tokens[6]
                 self.allQuests.append(Quest(title, description,
-                 completionCriteria, startFlag, endFlag))
+                 completionCriteria, startFlag, endFlag, optional, repeatable))
 
     def move(self, direction):
         """Move character in the specified direction in the area.
@@ -540,13 +548,21 @@ class Main:
         if ( isChristmasSeason and
              self.character.hasRoom() and
              "Christmas %i" % year not in self.character.flags):
+            differentItems = 4
             rewardText = "Thank you for playing during this holiday season!"
-            if year % 2 == 0:
+            roll = year + hash(self.fileName.lower())
+            if roll % differentItems == 0:
                 itemText = "You get an Ugly Disguise."
                 item = "Ugly Disguise"
-            else:
+            elif roll % differentItems == 1:
                 itemText = "You get a pair of Hopalong Boots."
                 item = "Hopalong Boots"
+            elif roll % differentItems == 2:
+                itemText = "You get the Debonairiest Nowell Shirt."
+                item = "Debonairiest Nowell Shirt"
+            elif roll % differentItems == 3:
+                itemText = "You get a rifle that shoots."
+                item = "A rifle that shoots"
             interfaceActions = {
                 'text': itemText,
                 'italic text': rewardText,
@@ -737,18 +753,22 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
 
         self.addMercenary(interfaceActions)
         
-        newQuest = self.checkForNewQuest(self.character.quests, self.character.flags)
-        if newQuest:
-            interfaceActions['new quest'] = newQuest
-            self.sound.playSound(self.sound.sounds['New Quest'])
-        completedQuest = self.checkForFinishedQuests(self.character.quests, self.character, returnOne=True)
-        if completedQuest:
-            interfaceActions['completed quest'] = completedQuest
-            self.sound.playSound(self.sound.sounds['Quest Ready'])
         oldQuest = self.removeFinishedQuests(self.character.quests, self.character.flags, returnOne=True)
         if oldQuest:
             interfaceActions['remove quest'] = oldQuest
             self.sound.playSound(self.sound.sounds['Quest Complete'])
+        else:
+            newQuest = self.checkForNewQuest(self.character.quests, self.character.flags)
+            if newQuest:
+                interfaceActions['new quest'] = newQuest
+                self.sound.playSound(self.sound.sounds['New Quest'])
+        completedQuest = self.checkForReadyQuests(self.character.quests, self.character, returnOne=True)
+        if completedQuest:
+            interfaceActions['completed quest'] = completedQuest
+            self.sound.playSound(self.sound.sounds['Quest Ready'])
+        uncompletedQuests = self.checkForUnreadyQuests(self.character.quests, self.character)
+        if uncompletedQuests:
+            interfaceActions['uncompleted quests'] = uncompletedQuests
 
         self.view = interfaceActions['view']
 
@@ -849,7 +869,10 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
         return randint(1, numberOfSides)
 
     def attack(self):
-        interfaceActions = self.battle.attack(self.skills['Attack'])
+        if self.character.equippedWeapon.CATEGORY == "Gun":
+            interfaceActions = self.battle.attack(self.skills['Shoot'])            
+        else:
+            interfaceActions = self.battle.attack(self.skills['Attack'])
         self.updateBattleVariables(interfaceActions)
         return interfaceActions
     
@@ -868,11 +891,27 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
         self.updateBattleVariables(interfaceActions)
         return interfaceActions
 
-    def equipItem(self):
-        interfaceActions = self.battle.attack(self.skills['Equip Item'])
+    def equipItem(self, itemIndex):
+        interfaceActions = self.battle.attack(
+            self.skills['Equip Item'],
+            lambda: self.character.equip(itemIndex))
         self.updateBattleVariables(interfaceActions)
         return interfaceActions
-        
+
+    def drinkPotion(self):
+        interfaceActions = self.battle.attack(
+            self.skills['Drink Potion'],
+            lambda: self.usePotion())
+        self.updateBattleVariables(interfaceActions)
+        return interfaceActions
+
+    def usePotion(self):
+        self.character.potions -= 1
+        healAmount = 50
+        self.character.hp += healAmount
+        self.sound.playSound(self.sound.sounds['Drink'])
+        return "You consume a vial full of life fluid, healing %s HP." % healAmount
+
     def updateBattleVariables(self, interfaceActions):
         self.collectItem(interfaceActions, True)
         self.view = interfaceActions['view']
@@ -880,12 +919,18 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
         if 'sounds' in interfaceActions:
             soundCount = Counter()
             for sound in interfaceActions['sounds']:
+                if type(sound) is dict:
+                    sound = tuple(sound.items())
                 if "Critical" in sound: # Don't stack critical sounds
                     soundCount[sound] = 1
                 else:
                     soundCount[sound] += 1
             for sound in soundCount:
-                self.sound.playSound(self.sound.sounds[sound], soundCount[sound])
+                if type(sound) is tuple:
+                    sound = dict(sound)
+                    self.sound.playSound(self.sound.sounds[sound['Name']], count=soundCount[tuple(sound.items())], pan=sound['Panning'])
+                else:
+                    self.sound.playSound(self.sound.sounds[sound], count=soundCount[sound])
 
     def addMercenary(self, interfaceActions):
         if 'mercenary' in interfaceActions:
@@ -962,7 +1007,7 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
         def syncWithCharacter(quests, character):
             for questInProgress in character.quests:
                 quests.remove(questInProgress)
-            self.checkForFinishedQuests(character.quests, character)
+            self.checkForReadyQuests(character.quests, character)
             self.removeFinishedQuests(quests, character.flags)
 
         self.availableQuests = []
@@ -983,16 +1028,29 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
     def checkForNewQuest(self, quests, flags):
         for quest in self.availableQuests:
             if quest.START_FLAG in flags:
-                quests.append(quest)
                 self.availableQuests.remove(quest)
+                if quest.END_FLAG in flags:
+                    return None
+                quests.insert(0, quest)
                 return quest
 
-    def checkForFinishedQuests(self, quests, character, returnOne=False):
+    def checkForReadyQuests(self, quests, character, returnOne=False):
         for quest in quests:
-            if quest.isCompletedBy(character) and quest.END_FLAG not in self.completedQuests:
-                self.completedQuests[quest.END_FLAG] = quest
+            if quest.isCompletedBy(character) and quest not in self.completedQuests:
+                self.completedQuests.add(quest)
+                quests.remove(quest)
+                quests.insert(0, quest)
                 if returnOne:
                     return quest
+
+    def checkForUnreadyQuests(self, quests, character):
+        uncompletedQuests = []
+        for quest in self.completedQuests:
+            if not quest.isCompletedBy(character):
+                uncompletedQuests.append(quest)
+        for quest in uncompletedQuests:
+            self.completedQuests.remove(quest)
+        return uncompletedQuests
 
     def removeFinishedQuests(self, quests, flags, returnOne=False):
         questsToRemove = []

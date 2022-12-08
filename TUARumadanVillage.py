@@ -2,7 +2,7 @@
 File: TUARumadanVillage.py
 Author: Ben Gardner
 Created: January 9, 2014
-Revised: October 26, 2022
+Revised: November 28, 2022
 """
 
 
@@ -446,9 +446,10 @@ class RumadanVillage:
                 self.c.removeItem(self.c.indexOfItem(rawMaterial1))
                 self.c.removeItem(self.c.indexOfItem(rawMaterial2))
                 self.c.euros -= craftPrice
-                self.text = ("After you pay %s euros " % craftPrice +
+                self.text = ("After you pay %s euros" % craftPrice +
                              " and hand over your gems, the %s" % npc +
                              " returns with a %s." % product)
+                self.c.flags['Magnificent Blade'] = True
                 return self.actions({'item': product})
             elif craftPrice > self.c.euros:
                 self.text = (npc+": I'll need %s euros." % craftPrice)
@@ -475,6 +476,11 @@ class RumadanVillage:
                  "Bring me a garnet fragment and an aquamarine shard." +
                  " Your slashes will cut through diamond with the sword" +
                  " I can craft."])
+            if self.text == npc+(
+                ": Bring me a garnet fragment and an aquamarine shard." +
+                " Your slashes will cut through diamond with the sword" +
+                " I can craft."):
+                self.c.flags['Swordcraft'] = True
         return self.actions()
 
     def statMan(self, selectionIndex=None):
