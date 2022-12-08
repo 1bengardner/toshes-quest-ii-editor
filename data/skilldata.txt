@@ -40,15 +40,15 @@ Scarab Slice	Damage	{"Sword"}	10	100	Earth	{'maxHp': 10}	{}	slices	None
 Scarab Stab	Damage	{"Spear"}	10	100	Earth	{'maxHp': 10}	{}	stabs	None
 Power Lob	Reduced Accuracy Damage	{"Bow"}	5	250	Physical	{}	{}	launches an arrow, landing on	None
 Rock Shot	Damage	{"Bow"}	5	80	Earth	{}	{}	fires a rock at	None
-Stiff Shot	Damage	{"Bow"}	10	200	Physical	{'hp': -20}	{}	stiffly shoots	None
+Stiff Shot	Damage	{"Bow", "Gun"}	10	200	Physical	{'hp': -20}	{}	stiffly shoots	None
 Flaming Arrow	Damage	{"Bow"}	10	100	Fire	{}	{}	shoots a flaming arrow at	None
 Sap Shot	Life Steal Damage	{"Bow"}	11	10	Physical	{}	{}	shoots an essence-sapping arrow at	None
-Bullseye Bolt	Accurate Damage	{"Bow"}	15	250	Physical	{}	{}	fires a steady shot at	None
+Bullseye Bolt	Accurate Damage	{"Bow", "Gun"}	15	250	Physical	{}	{}	fires a steady shot at	None
 Freezing Arrow	Damage	{"Bow"}	10	100	Ice	{}	{}	shoots a freezing cold arrow at	None
 Piercing Quad	Multi-Hit Damage	{"Bow"}	15	4	Physical	{}	{'defence': -1}	fires a piercing arrow at	None
-Death Dart	Damage	{"Bow"}	30	400	Physical	{}	{}	shoots a deadly projectile at	None
+Death Dart	Damage	{"Bow", "Gun"}	30	400	Physical	{}	{}	shoots a deadly projectile at	None
 Venom Arrow	Damage	{"Bow"}	10	100	Poison	{}	{}	fires a poisonous arrow at	None
-Rapid Burst	Multi-Hit Damage	{"Bow"}	50	7	Physical	{}	{}	shoots rapidly at	None
+Rapid Burst	Multi-Hit Damage	{"Bow", "Gun"}	50	7	Physical	{}	{}	shoots rapidly at	None
 Fireball	Damage	{"Wand"}	10	150	Fire	{}	{}	casts Fireball on	None
 Mudslide	Damage	{"Wand"}	10	150	Earth	{}	{'accuracy': -1}	casts Mudslide on	None
 Icicles	Multi-Hit Damage	{"Wand"}	20	3	Ice	{}	{}	casts a shard of ice at	None
@@ -57,7 +57,7 @@ Smoulder	Damage	{"Wand"}	20	200	Fire	{}	{'defence': -3}	casts Smoulder on	None
 Avalanche	Multi-Hit Damage	{"Wand"}	25	4	Earth	{}	{}	conjures a boulder to fall on	None
 Whirlpool	Damage	{"Wand"}	25	300	Water	{}	{}	casts Whirlpool on	None
 Hot Coals	Multi-Hit Damage	{"Wand"}	30	4	Fire	{}	{'hp': -5}	conjures a hot coal to burn	None
-Poison Cloud	Damage	{"Wand"}	30	0	Poison	{}	{}	casts Poison Cloud	None
+Poison Cloud	Miscellaneous	{"Wand"}	30	0	Poison	{}	{}	casts Poison Cloud	None
 Melting Touch	Damage	{"Wand"}	30	300	Fire	{}	{'defence': -15}	casts Melting Touch on	None
 Floodtide	Damage	{"Wand"}	35	400	Water	{}	{}	casts Floodtide on	None
 Mist	Miscellaneous	{"Wand"}	35	0	Physical	{}	{'waterReduction': -20, 'accuracy': -5}	conjures a veil of mist	None
@@ -82,7 +82,8 @@ Recover	Heal	{"All"}	15	25	Physical	{}	{}	recovers	None
 Restore	Percent Heal	{"All"}	50	25	Physical	{}	{}	restores	Recovering
 Reinvigorate	Percent Heal	{"All"}	125	50	Physical	{}	{}	reinvigorates	Recovering
 Revitalize	Percent Heal	{"All"}	250	100	Physical	{}	{}	revitalizes	Recovering
-Equip Item	Miscellaneous	{"All"}	0	0	Physical	{}	{}	swaps gear	Recovering
+Equip Item	Miscellaneous	{"All"}	0	0	Physical	{}	{}	swaps gear	None
+Drink Potion	Miscellaneous	{"All"}	0	0	Physical	{}	{}	consumes a vial of life fluid	None
 Inner Zen	Miscellaneous	{"All"}	25	0	Physical	{'accuracy': 4, 'cRate': 2, 'cDamage': 20}	{}	focuses deeply	None
 Healing Glow	Magic Heal	{"Wand"}	20	500	Physical	{}	{}	casts Healing Glow	None
 Healing Light	Magic Heal	{"Wand"}	40	2000	Physical	{}	{}	casts a Healing Light	None
@@ -153,3 +154,5 @@ Sleep	Miscellaneous	{"All"}	0	0	Physical	{}	{}	falls asleep	Sleeping
 Frostburn	Damage	{"All"}	0	200	Frostfire	{}	{}	casts Frostburn on	None
 Icebreath	Reduced Accuracy Damage	{"All"}	0	300	Freezing	{}	{'defence': -3}	breathes frost on	None
 Temporal Shift	XP Damage	{"All"}	0	100	Physical	{}	{}	casts Temporal Shift on	None
+Cower	Miscellaneous	{"All"}	0	0	Physical	{}	{}	cowers in fear	None
+Shoot	Damage	{"Gun"}	0	100	Physical	{}	{}	shoots	None
