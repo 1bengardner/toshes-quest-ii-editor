@@ -911,6 +911,39 @@ class KillsWindow(EditWindow):
         super(KillsWindow, self).saveData()
         print "Saved kills."
 
+class MapWindow(EditWindow):
+    def __init__(self, master):
+        super(MapWindow, self).__init__(master)
+        self.mapKey = "Discovered Areas"
+
+    def updateWidgets(self, character):
+        self.flags = character.flags
+        if not self.init:
+            super(MapWindow, self).initWindow(character)
+            self.initWindow()
+        super(MapWindow, self).updateWidgets(character)
+        
+    def initWindow(self):
+        helpLabel = Label(self.mainFrame, text="Click on a location to clear it from your map.", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
+        helpLabel.grid(row=0, column=0)
+        self.window.title("Mapped Locations")
+
+    def initRadioButtons(self, panel):
+        for area in self.flags[self.mapKey]:
+            if self.queryEntry.get().lower() in area.lower():
+                rb, panel = self.createGenericRadiobutton(panel, "%s x" % area, self.var, area, self.deleteArea)
+                rb.config(activebackground=COLOURS['ERROR_BG'])
+
+    def deleteArea(self):
+        del self.flags[self.mapKey][self.var.get()]
+        self.radiobuttons[self.var.get()].destroy()
+        self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
+        self.unsaved.grid()
+
+    def saveData(self):
+        super(MapWindow, self).saveData()
+        print "Saved map."
+
 class MainWindow:
     def swapInventories(self, revert=False):
         swapTextB = "<< Toshe's Items"
@@ -967,7 +1000,9 @@ class MainWindow:
         self.vendorItems = VendorWindow(self.vendorFrame)
         self.flags = FlagsWindow(master)
         self.kills = KillsWindow(master)
+        self.map = MapWindow(master)
         self.createMenu(master)
+        self.editWindows = [self.flags, self.kills, self.map]
 
         master.protocol('WM_DELETE_WINDOW', lambda: self.release(master))
 
@@ -994,6 +1029,7 @@ class MainWindow:
         self.viewMenu = Menu(menubar, tearoff=False)
         self.viewMenu.add_command(label="Flags", command=self.flags.show, state=DISABLED)
         self.viewMenu.add_command(label="Kills", command=self.kills.show, state=DISABLED)
+        self.viewMenu.add_command(label="Map", command=self.map.show, state=DISABLED)
         menubar.add_cascade(label="Edit", menu=self.viewMenu)
 
     def openLoadDialog(self):
@@ -1022,12 +1058,10 @@ class MainWindow:
             else:
                 self.vendorItemSwap.config(state=DISABLED, bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'])
                 self.swapInventories(True)
-            self.flags.terminate()
-            self.flags.path = path
-            self.flags.updateWidgets(character)
-            self.kills.terminate()
-            self.kills.path = path
-            self.kills.updateWidgets(character)
+            for editWindow in self.editWindows:
+                editWindow.terminate()
+                editWindow.path = path
+                editWindow.updateWidgets(character)
         except:
             print "Unable to read file. Attempting version upgrade to 2.0...",
             with open(path, "r") as gameFile:
@@ -1039,21 +1073,20 @@ class MainWindow:
             if success:
                 self.load(path)
         self.fileMenu.entryconfig(1, state=NORMAL)
-        self.viewMenu.entryconfig(0, state=NORMAL)
-        self.viewMenu.entryconfig(1, state=NORMAL)
+        for i in range(len(self.editWindows)):
+            self.viewMenu.entryconfig(i, state=NORMAL)
 
     def save(self):
         self.stats.save.invoke()
-        if self.flags.init:
-            self.flags.save.invoke()
-        if self.kills.init:
-            self.kills.save.invoke()
+        for editWindow in self.editWindows:
+            if editWindow.init:
+                editWindow.save.invoke()
         self.items.save.invoke()
         self.vendorItems.save.invoke()
 
     def release(self, master):
-        self.flags.terminate()
-        self.kills.terminate()
+        for editWindow in self.editWindows:
+            editWindow.terminate()
         master.destroy()
 
 def init():
