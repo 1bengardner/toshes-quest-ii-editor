@@ -768,6 +768,7 @@ class EditWindow(object):
             pickle.dump(character, gameFile)
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=DISABLED)
         self.unsaved.grid_remove()
+        print "Saved flags."
         
     def initRadioButtons(self, panel):
         raise NotImplementedError()
@@ -864,10 +865,6 @@ class FlagsWindow(EditWindow):
             self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
             self.unsaved.grid()
 
-    def saveData(self):
-        super(FlagsWindow, self).saveData()
-        print "Saved flags."
-
 class KillsWindow(EditWindow):
     def __init__(self, master):
         super(KillsWindow, self).__init__(master)
@@ -890,26 +887,29 @@ class KillsWindow(EditWindow):
         addButton = Button(entryFrame, text="Add", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], command=self.addEnemy)
         addButton.pack(side=LEFT)
         self.enemyEntry.bind("<Return>", lambda _: addButton.invoke())
-        helpLabel = Label(self.mainFrame, text="Clicking on a monster name currently does nothing.", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
+        helpLabel = Label(self.mainFrame, text="Click on a name to reset your kills for that enemy.", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
         helpLabel.grid(row=0, column=0)
-        self.window.title("Kills")
+        self.window.title("Kill Counts")
 
     def initRadioButtons(self, panel):
         for enemy, killCount in self.flags[self.killsKey].items():
             if self.queryEntry.get().lower() in enemy.lower():
-                _, panel = self.createGenericRadiobutton(panel, "%s: %s" % (enemy, killCount), self.var, enemy, lambda : 0)
+                rb, panel = self.createGenericRadiobutton(panel, "%s: %s" % (enemy, killCount), self.var, enemy, self.deleteEnemy)
+                rb.config(activebackground=COLOURS['ERROR_BG'])
 
     def addEnemy(self):
         if self.enemyEntry.get() != "" and self.enemyEntry.get() not in self.flags[self.killsKey]:
             self.queryEntry.set("")
-            self.createGenericRadiobutton(self.pages[-1], "%s: %s" % (self.enemyEntry.get(), 1), self.var, self.enemyEntry.get(), lambda : 0)
+            self.createGenericRadiobutton(self.pages[-1], "%s: %s" % (self.enemyEntry.get(), 1), self.var, self.enemyEntry.get(), self.deleteEnemy)
             self.flags[self.killsKey][self.enemyEntry.get()] = 1
             self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
             self.unsaved.grid()
 
-    def saveData(self):
-        super(KillsWindow, self).saveData()
-        print "Saved kills."
+    def deleteEnemy(self):
+        del self.flags[self.killsKey][self.var.get()]
+        self.radiobuttons[self.var.get()].destroy()
+        self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
+        self.unsaved.grid()
 
 class MapWindow(EditWindow):
     def __init__(self, master):
@@ -939,10 +939,6 @@ class MapWindow(EditWindow):
         self.radiobuttons[self.var.get()].destroy()
         self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
         self.unsaved.grid()
-
-    def saveData(self):
-        super(MapWindow, self).saveData()
-        print "Saved map."
 
 class MainWindow:
     def swapInventories(self, revert=False):
