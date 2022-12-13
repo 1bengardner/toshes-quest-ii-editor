@@ -12,3 +12,7 @@ Character data editor for [Toshe's Quest II](https://github.com/1bengardner/tosh
 
 ![Flag editor window](https://user-images.githubusercontent.com/6226898/119273897-06212700-bbdb-11eb-91d8-fb22ede64d6d.png)
 - Browse, find, add and delete game progression flags
+
+## Known issues
+
+- Currently the Editor does not work well with upgraded items and characters with the Chasmic Rucksack
