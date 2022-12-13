@@ -232,6 +232,7 @@ class ItemWindow:
             "Spear",
             "Bow",
             "Wand",
+            "Gun",
             "Shield",
             "Armour",
             "Miscellaneous",
@@ -239,7 +240,7 @@ class ItemWindow:
         self.category = EditorDropdown(infoFrame, *categories, onSelectionChanged=self.onCategoryChanged)
         self.category.config(bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], activebackground=COLOURS['DEFAULT_FG'], activeforeground=COLOURS['DEFAULT_BG'])
         self.category['menu'].config(bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'])
-        self.category['menu'].insert_separator(6)
+        self.category['menu'].insert_separator(categories.index("Shield"))
         self.category.grid(row=1, column=1, sticky='W')
         # Price
         priceFrame = Frame(infoFrame, bg=COLOURS['DEFAULT_BG'])
@@ -500,6 +501,7 @@ class ItemWindow:
             "Club" : "weapons",
             "Spear" : "weapons",
             "Wand" : "weapons",
+            "Gun" : "weapons",
         }
         for i, item in enumerate(self.items):
             if item is None:
