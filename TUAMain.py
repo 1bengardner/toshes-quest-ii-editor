@@ -2,16 +2,16 @@
 File: TUAMain.py
 Author: Ben Gardner
 Created: January 14, 2013
-Revised: December 4, 2022
+Revised: December 13, 2022
 """
 
 
 import pickle
+import random
 from copy import deepcopy
-from random import randint
-from random import choice
 from collections import Counter
 from datetime import date
+from threading import Thread
 
 from TUAWeapon import Weapon
 from TUAArmour import Armour
@@ -207,6 +207,7 @@ class Main:
             self.character = pickle.load(gameFile)
         self.initGame()
         self.sound.playSound(self.sound.sounds['Load'])
+        Thread(target=self.writeGameToPreferences).start()
 
     def loadFromCheckpoint(self):
         self.character.checkpoint.flags['Discovered Areas'] = self.character.flags['Discovered Areas']
@@ -263,7 +264,7 @@ class Main:
         with open("saves\\"+self.fileName+".tq", "w") as gameFile:
             pickle.dump(self.character, gameFile)
         self.sound.playSound(self.sound.sounds['Save'])
-        self.writeGameToPreferences()
+        Thread(target=self.writeGameToPreferences).start()
 
     def writeGameToPreferences(self):
         try:
@@ -537,39 +538,82 @@ class Main:
         return self.getInterfaceActions(selectionIndex)
 
     def getLoginEvents(self):
-        isChristmasSeason = (
-            date.today().month == 12 and
-            date.today().day > 10 or
-            date.today().month == 1 and
-            date.today().day < 9)
-        year = date.today().year
-        if date.today().month == 1:
-            year -= 1
-        if ( isChristmasSeason and
-             self.character.hasRoom() and
-             "Christmas %i" % year not in self.character.flags):
-            differentItems = 4
-            rewardText = "Thank you for playing during this holiday season!"
-            roll = year + hash(self.fileName.lower())
-            if roll % differentItems == 0:
-                itemText = "You get an Ugly Disguise."
-                item = "Ugly Disguise"
-            elif roll % differentItems == 1:
-                itemText = "You get a pair of Hopalong Boots."
-                item = "Hopalong Boots"
-            elif roll % differentItems == 2:
-                itemText = "You get the Debonairiest Nowell Shirt."
-                item = "Debonairiest Nowell Shirt"
-            elif roll % differentItems == 3:
-                itemText = "You get a rifle that shoots."
-                item = "A rifle that shoots"
-            interfaceActions = {
-                'text': itemText,
-                'italic text': rewardText,
-                'item': item}
-            self.collectItem(interfaceActions)
-            self.character.flags["Christmas %i" % year] = True
+        def getDailyChallenge():
+            def randomChallenge():
+                enemies = []
+                with open("data\\dailychallenge.txt", "r") as enemyFile:
+                    for line in enemyFile:
+                        enemies.append(line.strip())
+                enemy = None
+                state = random.getstate()
+                random.seed(self.fileName.lower() + str(date.today()))
+                while enemy is None or enemy.LEVEL - 1 > self.character.level:
+                    i = random.randint(0, len(enemies) - 1)
+                    enemy = self.enemies[enemies[i]]
+                    del enemies[i]
+                random.setstate(state)
+                killCount = min(10, 2 + self.character.level - enemy.LEVEL)
+                description = "Hunt: %s. Defeat %s of them." % (enemy.NAME, killCount)
+                criteria = {'Kills': (enemy.IDENTIFIER, killCount)}
+                return description, criteria
+
+            interfaceActions = {}
+            # TODO: Replace "Level 2" with "Conclusion"
+            if "Level 2" in self.character.flags:
+                title = "Daily Challenge"
+                startFlag = "%s %s" % (title, date.today())
+                description, criteria = randomChallenge()
+                todaysQuest = Quest(title, description, criteria, startFlag, "%s Complete" % startFlag, True, True)
+                if todaysQuest in self.character.quests or todaysQuest.END_FLAG in self.character.flags:
+                    return interfaceActions
+                existingDailies = filter(lambda q: title in q.START_FLAG, self.character.quests)
+                for quest in existingDailies:
+                    self.character.quests.remove(quest)
+                self.character.quests.insert(0, todaysQuest)
+                self.character.flags[startFlag] = self.character.flags['Kills'][criteria['Kills'][0]] if criteria['Kills'][0] in self.character.flags['Kills'] else 0
+                interfaceActions['new quest'] = todaysQuest
+                self.sound.playSound(self.sound.sounds['New Quest'])
             return interfaceActions
+
+        def getHolidayActions():
+            interfaceActions = {}
+            isChristmasSeason = (
+                date.today().month == 12 and
+                date.today().day > 10 or
+                date.today().month == 1 and
+                date.today().day < 9)
+            year = date.today().year
+            if date.today().month == 1:
+                year -= 1
+            if ( isChristmasSeason and
+                 self.character.hasRoom() and
+                 "Christmas %i" % year not in self.character.flags):
+                differentItems = 4
+                rewardText = "Thank you for playing during this holiday season!"
+                roll = (year + hash(self.fileName.lower())) % differentItems
+                if roll == 0:
+                    itemText = "The King of Elves appears and tosses you an Ugly Disguise."
+                    item = "Ugly Disguise"
+                elif roll == 1:
+                    itemText = "The King of Elves appears and gives you a pair of Hopalong Boots."
+                    item = "Hopalong Boots"
+                elif roll == 2:
+                    itemText = "The King of Elves appears and bestows upon you the Debonairiest Nowell Shirt."
+                    item = "Debonairiest Nowell Shirt"
+                elif roll == 3:
+                    itemText = "The King of Elves appears and hands you a rifle that shoots."
+                    item = "A rifle that shoots"
+                interfaceActions.update({
+                    'text': itemText,
+                    'italic text': rewardText,
+                    'item': item})
+                self.collectItem(interfaceActions)
+                self.character.flags["Christmas %i" % year] = True
+            return interfaceActions
+
+        interfaceActions = getDailyChallenge()
+        interfaceActions.update(getHolidayActions())
+        return interfaceActions if interfaceActions else None
         
     def getInterfaceActions(self, selectionIndex=None, justFought=False):
         """Retrieve the interface actions from the current spot.
@@ -752,7 +796,29 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
                     self.store.append(None)
 
         self.addMercenary(interfaceActions)
-        
+
+        existingDailies = filter(lambda q: "Daily Challenge" in q.START_FLAG, self.character.quests)
+        for quest in existingDailies:
+            if quest.isCompletedBy(self.character):
+                self.character.flags[quest.END_FLAG] = True
+                def getDailyChallengeReward(interfaceActions):
+                    equipmentTypes = ["Weapon", "Armour", "Shield"]
+                    while len(equipmentTypes) > 0:
+                        equipmentType = random.choice(equipmentTypes)
+                        i = self.character.equippedItemIndices[equipmentType]
+                        if i is None:
+                            equipmentTypes.remove(equipmentType)
+                            continue
+                        else:
+                            equipToUpgrade = self.character.items[i]
+                            if 'text' not in interfaceActions or not interfaceActions['text']:
+                                interfaceActions['text'] = ""
+                            interfaceActions['text'] += ("\nDaily Challenge complete!\n%s got upgraded." % equipToUpgrade.NAME)
+                            equipToUpgrade.upgrade()
+                            break
+                        
+                getDailyChallengeReward(interfaceActions)
+
         oldQuest = self.removeFinishedQuests(self.character.quests, self.character.flags, returnOne=True)
         if oldQuest:
             interfaceActions['remove quest'] = oldQuest
@@ -866,7 +932,7 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
 
         (copied from Battle)
         """
-        return randint(1, numberOfSides)
+        return random.randint(1, numberOfSides)
 
     def attack(self):
         if self.character.equippedWeapon.CATEGORY == "Gun":
@@ -939,7 +1005,12 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
 
     def buy(self, itemIndex):
         self.character.euros -= self.store[itemIndex].PRICE
-        self.character.addItem(self.store[itemIndex])
+        if self.store[itemIndex].NAME == "Chasmic Rucksack":
+            self.character.flags['Chasmic Rucksack'] = True
+            while len(self.character.items) < 16:
+                self.character.items.append(None)
+        else:
+            self.character.addItem(self.store[itemIndex])
         if self.buyback:
             self.character.flags['Buyback Items'][itemIndex] = None
             self.store[itemIndex] = None
@@ -989,7 +1060,7 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
         levelRoll = self.roll(10000)
         if levelRoll < item.PRICE:
             level = 2
-        modifier = choice(self.itemModifiers[item.CATEGORY][level])
+        modifier = random.choice(self.itemModifiers[item.CATEGORY][level])
         value = (self.roll(3) + 1) * level
         self.modifyItemStat(item, modifier, value)
         item.NAME = "%s %s" % (modifier, item.NAME)
@@ -1006,7 +1077,8 @@ interfaceActions['enemy modifiers']['Stats'][stat][skillName]
     def initializeQuests(self):
         def syncWithCharacter(quests, character):
             for questInProgress in character.quests:
-                quests.remove(questInProgress)
+                if questInProgress in quests:
+                    quests.remove(questInProgress)
             self.checkForReadyQuests(character.quests, character)
             self.removeFinishedQuests(quests, character.flags)
 
