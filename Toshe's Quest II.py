@@ -5,7 +5,7 @@
 File: Toshe's Quest II.py
 Author: Ben Gardner
 Created: December 25, 2012
-Revised: December 13, 2022
+Revised: January 3, 2023
 """
 
 
@@ -562,8 +562,8 @@ class TopLeftFrame:
                                                   (NUMBER_OF_BARS - 1))]
         self.xpBarLabel['text'] = "%d%%" % (100 * c.xp / c.xpTnl)
         self.xpBarLabel['fg'] = WHITE if (100 * c.xp / c.xpTnl < 45) else NAVY
-        if hasattr(c, 'specialization'):
-            self.spWord['text'] = "%s %s" % (c.specialization, c.ub205e2nmzfwi)
+        if c.specialization is not None:
+            self.spWord['text'] = "%s %s" % (c.specialization, c.mastery)
             if c.sp > c.spTnl:
                 self.spBarLabel['image'] = spBars[-1]
             else:
@@ -916,19 +916,20 @@ class TopCenterFrame:
         stateChanged = False
         
         hideSideIntroFrames()
-        
+
         window.bottomFrame.bottomLeftFrame.insertTimestamp(True)
-        
+        window.topFrame.topRightFrame.logButton['state'] = NORMAL
+        if main.character.flags['Config']['Mission Log Open'] != window.topFrame.topRightFrame.showMissionLog.get():
+            window.topFrame.topRightFrame.logButton.invoke()
+
         interfaceActions = main.getInterfaceActions(justFought=True)
         eventActions = main.getLoginEvents()
         if eventActions is not None:
             interfaceActions.update(eventActions)
             stateChanged = True
+        window.rightFrame.clearMissions()
         updateInterface(interfaceActions)
-        
-        window.topFrame.topRightFrame.logButton['state'] = NORMAL
-        if main.character.flags['Config']['Mission Log Open'] != window.topFrame.topRightFrame.showMissionLog.get():
-            window.topFrame.topRightFrame.logButton.invoke()
+
         window.rightFrame.clearMissions()
         for quest in main.character.quests:
             window.rightFrame.addMission(quest, pushToTop=False)
@@ -941,7 +942,7 @@ class TopCenterFrame:
             self.mapButton.invoke()
         self.updateMapVisibility()
         
-        if hasattr(main.character, 'specialization'):
+        if main.character.specialization is not None:
             window.topFrame.topLeftFrame.spWord.grid()
             window.topFrame.topLeftFrame.spLabel.grid()
             window.topFrame.topLeftFrame.spBarLabel.grid()
@@ -1466,7 +1467,7 @@ class BottomLeftFrame:
         
     def insertTimestamp(self, addSpacing=False):
         self.outputBox['state'] = NORMAL
-        timestamp = "{dt:%I}:{dt.minute} {dt:%p}".format(dt = datetime.now())
+        timestamp = "{dt:%I}:{dt.minute:02d} {dt:%p} on {dt:%B} {dt.day}, {dt.year}".format(dt = datetime.now())
         self.outputBox.insert(END,
                               "%s❧ %s" % ("\n\n" if addSpacing else "", timestamp),
                               ("grey", "highlight"))
@@ -1818,7 +1819,7 @@ def displayItemStats():
     frame = window.topFrame.topLeftFrame
     item = main.character.items[frame.v1.get()]
     
-    frame.itemNameLabel.config(text=item.NAME, font=italicFont2)
+    frame.itemNameLabel.config(text=item.displayName, font=italicFont2)
     
     frame.itemCategoryLabel['text'] = item.CATEGORY
     
@@ -1919,7 +1920,7 @@ def displayStoreItemStats():
     frame = window.topFrame.topRightFrame
     item = main.store[frame.v2.get()]
 
-    frame.itemNameLabel.config(text=item.NAME, font=italicFont2)
+    frame.itemNameLabel.config(text=item.displayName, font=italicFont2)
     
     frame.itemCategoryLabel['text'] = item.CATEGORY
     
@@ -2083,12 +2084,12 @@ def updateInterface(updates):
         window.levelUpLabel['text'] = "LEVEL %d!" % main.character.level
         main.sound.playSound(main.sound.sounds['Level Up'])
 
-    if hasattr(main.character, 'specialization'):
+    if main.character.specialization is not None:
         while main.character.hasSpecializedUp():
             if not updates['text']:
                 updates['text'] = ""
             updates['text'] += "\nToshe is now a %s rank %s!" % (
-                main.character.specialization, main.character.ub205e2nmzfwi)
+                main.character.specialization, main.character.mastery)
             window.gridPowerUpFrame()
 
     for mercenary in main.character.mercenaries:
@@ -2148,6 +2149,8 @@ def updateInterface(updates):
     if ('new quest' in updates):
         window.rightFrame.addMission(updates['new quest'])
         window.gridQuestFrame("MISSION!")
+        if not window.topFrame.topRightFrame.showMissionLog.get():
+            window.topFrame.topRightFrame.logButton.invoke()
     if ('completed quest' in updates):
         window.rightFrame.markMission(updates['completed quest'])
     if ('uncompleted quests' in updates):
