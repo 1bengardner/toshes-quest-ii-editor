@@ -2,6 +2,12 @@
 
 Character data editor for [Toshe's Quest II](https://github.com/1bengardner/toshes-quest-ii).
 
+## Running
+
+Run this editor alongside the game and all its images and files, inside the top-level Toshe's Quest II directory.
+
+The editor relies on those images and files for the editor interface and saving/loading.
+
 ## Features
 
 ![Main editor window](https://user-images.githubusercontent.com/6226898/119273813-a3c82680-bbda-11eb-9552-acb5c72ecddc.png)
