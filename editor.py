@@ -145,7 +145,7 @@ class StatWindow:
         self.strength.set(character.strength)
         self.dexterity.set(character.dexterity)
         self.wisdom.set(character.wisdom)
-        if character.NAME == "Toshe":
+        if character.NAME == self.name:
             self.euros['state'] = NORMAL
             self.euros.set(character.euros)
             self.potions['state'] = NORMAL
@@ -166,7 +166,7 @@ class StatWindow:
             character.strength = int(self.strength.get())
             character.dexterity = int(self.dexterity.get())
             character.wisdom = int(self.wisdom.get())
-            if character.NAME == "Toshe":
+            if character.NAME == self.name:
                 character.euros = int(self.euros.get())
                 character.potions = int(self.potions.get())
 
@@ -227,7 +227,7 @@ class ItemWindow:
         # Category
         categories = [
             "Sword",
-            "Club",
+            "Bludgeon",
             "Axe",
             "Spear",
             "Bow",
@@ -498,13 +498,15 @@ class ItemWindow:
             "Bow" : "weapons",
             "Sword" : "weapons",
             "Axe" : "weapons",
-            "Club" : "weapons",
+            "Bludgeon" : "weapons",
             "Spear" : "weapons",
             "Wand" : "weapons",
             "Gun" : "weapons",
         }
         for i, item in enumerate(self.items):
-            if item is None:
+            if i >= len(self.buttons):
+                break
+            elif item is None:
                 self.buttons[i].config(image=IMAGES['DEFAULT'])
             else:
                 if item.IMAGE_NAME not in IMAGES:
@@ -944,7 +946,7 @@ class MapWindow(EditWindow):
 
 class MainWindow:
     def swapInventories(self, revert=False):
-        swapTextB = "<< Toshe's Items"
+        swapTextB = "<< Your Items"
         if self.vendorItemSwap['text'] == self.swapTextA and not revert:
             self.vendorItemSwap['text'] = swapTextB
             self.itemFrame.grid_remove()
@@ -1040,10 +1042,13 @@ class MainWindow:
             character = pickle.load(gameFile)
         try:
             self.characterName.config(relief=GROOVE, text=path.rsplit('/', 1)[-1], font=("TkDefaultFont", 16))
-            unlockedPortraits = [mercenary.NAME for mercenary in [character] + (character.mercenaries if hasattr(character, "mercenaries") else [])]
+            unlockedPortraits = ["Toshe"]
+            self.portraits["Toshe"]['value'] = character.NAME
+            if hasattr(character, "mercenaries"):
+                unlockedPortraits += [mercenary.NAME for mercenary in character.mercenaries]
             for portrait in self.portraits:
                 self.portraits[portrait].config(state=(NORMAL if portrait in unlockedPortraits else DISABLED))
-            self.charVar.set("Toshe")
+            self.charVar.set(character.NAME)
             self.stats.path = path
             self.stats.updateWidgets(character)
             self.switchCharacter()

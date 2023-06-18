@@ -21,4 +21,4 @@ The editor relies on those images and files for the editor interface and saving/
 
 ## Known issues
 
-- Currently the Editor does not work well with upgraded items and characters with the Chasmic Rucksack
+- Currently the Editor only displays the first 9 items for characters with the Chasmic Rucksack
