@@ -687,6 +687,7 @@ class EditWindow(object):
         self.exiting = False
         self.init = False
         self.master = master
+        self.nameInConsole = "nothing"
 
     def show(self):
         self.window.deiconify()
@@ -769,12 +770,15 @@ class EditWindow(object):
             return
         with open(self.path, "r") as gameFile:
             character = pickle.load(gameFile)
-        character.flags = self.flags
+        self.saveTo(character)
         with open(self.path, "w") as gameFile:
             pickle.dump(character, gameFile)
         self.save.config(text="Saved", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['DEFAULT_BG'], state=DISABLED)
         self.unsaved.grid_remove()
-        print "Saved flags."
+        print "Saved %s." % self.nameInConsole
+        
+    def saveTo(self, character):
+        raise NotImplementedError()
         
     def initRadioButtons(self, panel):
         raise NotImplementedError()
@@ -821,6 +825,10 @@ class EditWindow(object):
         self.pageCount.config(text=str(self.pageView) + "/" + str(len(self.pages)))
 
 class FlagsWindow(EditWindow):
+    def __init__(self, master):
+        super(FlagsWindow, self).__init__(master)
+        self.nameInConsole = "flags"
+
     def updateWidgets(self, character):
         self.flags = character.flags
         if not self.init:
@@ -844,10 +852,10 @@ class FlagsWindow(EditWindow):
 
     def initRadioButtons(self, panel):
         for flag, val in self.flags.items():
-            if val is True and self.queryEntry.get().lower() in flag.lower():
-                panel = self.createRadiobutton(panel, flag, self.var, self.deleteFlag)
+            if self.queryEntry.get().lower() in flag.lower():
+                panel = self.createRadiobutton(panel, flag, self.var, self.deleteFlag, None if val is True else COLOURS['DANGEROUS'])
 
-    def createRadiobutton(self, master, flag, var, cmd):
+    def createRadiobutton(self, master, flag, var, cmd, bg=None):
         rb, master = self.createGenericRadiobutton(
             master,
             flag + " x",
@@ -855,6 +863,8 @@ class FlagsWindow(EditWindow):
             flag,
             cmd)
         rb.config(activebackground=COLOURS['ERROR_BG'])
+        if bg:
+            rb.config(bg=bg)
         return master
 
     def deleteFlag(self):
@@ -871,10 +881,14 @@ class FlagsWindow(EditWindow):
             self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
             self.unsaved.grid()
 
+    def saveTo(self, character):
+        character.flags = self.flags
+
 class KillsWindow(EditWindow):
     def __init__(self, master):
         super(KillsWindow, self).__init__(master)
         self.killsKey = "Kills"
+        self.nameInConsole = "kills"
 
     def updateWidgets(self, character):
         self.flags = character.flags
@@ -917,10 +931,14 @@ class KillsWindow(EditWindow):
         self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
         self.unsaved.grid()
 
+    def saveTo(self, character):
+        character.flags = self.flags
+
 class MapWindow(EditWindow):
     def __init__(self, master):
         super(MapWindow, self).__init__(master)
         self.mapKey = "Discovered Areas"
+        self.nameInConsole = "map"
 
     def updateWidgets(self, character):
         self.flags = character.flags
@@ -945,6 +963,44 @@ class MapWindow(EditWindow):
         self.radiobuttons[self.var.get()].destroy()
         self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
         self.unsaved.grid()
+
+    def saveTo(self, character):
+        character.flags = self.flags
+
+class QuestsWindow(EditWindow):
+    def __init__(self, master):
+        super(QuestsWindow, self).__init__(master)
+        self.nameInConsole = "quests"
+
+    def updateWidgets(self, character):
+        self.quests = character.quests
+        if not self.init:
+            super(QuestsWindow, self).initWindow(character)
+            self.initWindow()
+        super(QuestsWindow, self).updateWidgets(character)
+        
+    def initWindow(self):
+        helpLabel = Label(self.mainFrame, text="Click on a quest to delete it.", bg=COLOURS['DEFAULT_FG'], fg=COLOURS['BLACK'])
+        helpLabel.grid(row=0, column=0)
+        self.window.title("Quests")
+
+    def initRadioButtons(self, panel):
+        for quest in self.quests:
+            if self.queryEntry.get().lower() in quest.TITLE.lower():
+                rb, panel = self.createGenericRadiobutton(panel, "%s x" % quest.TITLE, self.var, str(hash((quest.START_FLAG, quest.END_FLAG))), self.deleteQuest)
+                rb.config(activebackground=COLOURS['ERROR_BG'])
+
+    def deleteQuest(self):
+        for i, quest in enumerate(self.quests):
+            if str(quest.__hash__()) == self.var.get():
+                del self.quests[i]
+                break
+        self.radiobuttons[self.var.get()].destroy()
+        self.save.config(text="Save Changes", bg=COLOURS['DEFAULT_BG'], fg="green", relief=RAISED, state=NORMAL)
+        self.unsaved.grid()
+
+    def saveTo(self, character):
+        character.quests = self.quests
 
 class MainWindow:
     def swapInventories(self, revert=False):
@@ -1003,8 +1059,9 @@ class MainWindow:
         self.flags = FlagsWindow(master)
         self.kills = KillsWindow(master)
         self.map = MapWindow(master)
+        self.quests = QuestsWindow(master)
         self.createMenu(master)
-        self.editWindows = [self.flags, self.kills, self.map]
+        self.editWindows = [self.flags, self.kills, self.map, self.quests]
 
         master.protocol('WM_DELETE_WINDOW', lambda: self.release(master))
 
@@ -1031,6 +1088,7 @@ class MainWindow:
         self.viewMenu = Menu(menubar, tearoff=False)
         self.viewMenu.add_command(label="Flags", command=self.flags.show, state=DISABLED)
         self.viewMenu.add_command(label="Kills", command=self.kills.show, state=DISABLED)
+        self.viewMenu.add_command(label="Quests", command=self.quests.show, state=DISABLED)
         self.viewMenu.add_command(label="Map", command=self.map.show, state=DISABLED)
         menubar.add_cascade(label="Edit", menu=self.viewMenu)
 
@@ -1112,6 +1170,7 @@ def init():
         "LINK" : "blue",
         "ERROR_BG" : "red",
         "ERROR_FG" : "white",
+        "DANGEROUS": "grey",
     }
     global PADDING
     PADDING = {
