@@ -338,6 +338,8 @@ class ItemWindow:
             "Earth",
             "Water",
             "Fire",
+            "Frostfire",
+            "Lightning",
         ]
         self.imbuement = EditorDropdown(infoFrame, *elements, command=self.onItemModified)
         self.imbuement.config(bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], activebackground=COLOURS['DEFAULT_FG'], activeforeground=COLOURS['DEFAULT_BG'])
