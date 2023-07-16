@@ -510,10 +510,13 @@ class ItemWindow:
                 break
             elif item is None:
                 self.buttons[i].config(image=IMAGES['DEFAULT'])
-            else:
-                if item.IMAGE_NAME not in IMAGES:
-                    IMAGES[item.IMAGE_NAME] = PhotoImage(file="images\\"+directories[item.CATEGORY]+"\\"+item.IMAGE_NAME+".gif")
-                self.buttons[i].config(image=IMAGES[item.IMAGE_NAME])
+            else: 
+                try:
+                    if item.IMAGE_NAME not in IMAGES:
+                        IMAGES[item.IMAGE_NAME] = PhotoImage(file="images\\"+directories[item.CATEGORY]+"\\"+item.IMAGE_NAME+".gif")
+                    self.buttons[i].config(image=IMAGES[item.IMAGE_NAME])
+                except TclError:
+                    self.buttons[i].config(state=DISABLED)
         self.save.config(text="Save", bg=COLOURS['DEFAULT_BG'], fg=COLOURS['DEFAULT_FG'], relief=RAISED, state=DISABLED)
         self.erase.config(fg=COLOURS['ERROR_BG'], bg=COLOURS['DEFAULT_BG'], relief=RAISED, state=DISABLED)
 
