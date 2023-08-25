@@ -370,10 +370,11 @@ class ItemWindow:
         errorFrame.config(width=self.error.winfo_reqwidth(), height=self.error.winfo_reqheight())
 
         self.children = itemFrame.winfo_children()
+        self.infoChildren = infoFrame.winfo_children()
         setChildren(self.children, False)
 
     def selectItem(self):
-        setChildren(self.children, True)
+        setChildren(self.infoChildren, True)
         selected = self.items[self.itemVar.get()]
         if selected == None:
             self.category.set(self.category.get())
@@ -510,6 +511,8 @@ class ItemWindow:
                 break
             elif item is None:
                 self.buttons[i].config(image=IMAGES['DEFAULT'])
+            elif type(item) == str:
+                self.buttons[i].config(state=DISABLED)
             else: 
                 try:
                     if item.IMAGE_NAME not in IMAGES:
