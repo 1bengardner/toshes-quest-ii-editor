@@ -1164,9 +1164,9 @@ def init():
         "EURO" : PhotoImage(file="images\\icons\\euro.gif"),
         "POTION" : PhotoImage(file="images\\icons\\potion.gif"),
         "DEFAULT" : PhotoImage(file="images\\other\\empty.gif"),
-        "TOSHE" : PhotoImage(file="images\\other\\toshe.gif").zoom(3).subsample(4),
-        "QENDRESA" : PhotoImage(file="images\\areas\\pec\\11.gif").subsample(3),
-        "BARRIE" : PhotoImage(file="images\\areas\\pristina\\26.gif"),
+        "TOSHE" : PhotoImage(file="images\\other\\toshe.gif").subsample(2),
+        "QENDRESA" : PhotoImage(file="images\\areas\\pec\\11.gif").subsample(4),
+        "BARRIE" : PhotoImage(file="images\\areas\\pristina\\26.gif").subsample(3),
     }
     global COLOURS
     COLOURS = {
