@@ -19,13 +19,13 @@ On Windows, you can use the included [mklinks.bat](mklinks.bat) to speed up link
 ## Features
 
 ### Modify stats and items
-![Main editor window](https://user-images.githubusercontent.com/6226898/119273813-a3c82680-bbda-11eb-9552-acb5c72ecddc.png)
+![Main editor window](https://github.com/1bengardner/toshes-quest-ii-editor/assets/6226898/d498e469-3b3a-4568-8526-5c8279f28dc7)
 
 ### Change item graphics
-![Armour Graphic Select window](https://user-images.githubusercontent.com/6226898/119273858-df62f080-bbda-11eb-889f-945ba84a1312.png)
+![Armour Graphic Select window](https://github.com/1bengardner/toshes-quest-ii-editor/assets/6226898/a639afae-0c22-4e1a-8d11-8e1fa2b0595b)
 
 ### Browse, search, add and delete game progression data
-![Flag editor window](https://user-images.githubusercontent.com/6226898/119273897-06212700-bbdb-11eb-91d8-fb22ede64d6d.png)
+![Flag editor window](https://github.com/1bengardner/toshes-quest-ii-editor/assets/6226898/10f05fe1-ec08-4581-b907-b0a8a19f5494)
 
 ## Known issues
 
