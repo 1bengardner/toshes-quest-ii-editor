@@ -56,6 +56,8 @@ mklink TUAMountOlympus.py "%pathToGame%\TUAMountOlympus.py"
 mklink TUALabyrinthOfDaedalus.py "%pathToGame%\TUALabyrinthOfDaedalus.py"
 mklink TUAStatics.py "%pathToGame%\TUAStatics.py"
 mklink TUABlackjack.py "%pathToGame%\TUABlackjack.py"
+mklink TUADeckOfCards.py "%pathToGame%\TUADeckOfCards.py"
+mklink TUARougeOuNoir.py "%pathToGame%\TUARougeOuNoir.py"
 
 mklink converter.py "%pathToGame%\converter.py"
 mklink /d data "%pathToGame%\resources\assets\data"
