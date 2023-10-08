@@ -60,5 +60,4 @@ mklink TUADeckOfCards.py "%pathToGame%\TUADeckOfCards.py"
 mklink TUARougeOuNoir.py "%pathToGame%\TUARougeOuNoir.py"
 
 mklink converter.py "%pathToGame%\converter.py"
-mklink /d data "%pathToGame%\resources\assets\data"
-mklink /d images "%pathToGame%\resources\assets\images"
+mklink /d resources "%pathToGame%\resources"

@@ -435,7 +435,7 @@ class ItemWindow:
         imageWindow.focus()
         imageWindow.bind("<Control-w>", lambda _: imageWindow.destroy())
         imageWindow.bind("<Escape>", lambda _: imageWindow.destroy())
-        imageWindow.iconbitmap("images\\icons\\tq.ico")
+        imageWindow.iconbitmap("resources/assets/images/icons/tq.ico")
         imageWindow.title(imageCategory+" Graphic Select")
         helpLabel = Label(imageWindow, text="Choose an item graphic from below.", bg=COLOURS['BLACK'], fg=COLOURS['DEFAULT_FG'])
         helpLabel.grid()
@@ -458,12 +458,12 @@ class ItemWindow:
             else:
                 dataString = "weapondata"
                 imageString = "weapons"
-            with open("data\\"+dataString+".txt", "r") as rFile:
+            with open("resources/assets/data/"+dataString+".txt", "r") as rFile:
                 rFile.readline()
                 for line in rFile:
                     name = line.strip().split("\t")[0]
                     if name not in IMAGES:
-                        IMAGES[name] = PhotoImage(file="images\\"+imageString+"\\"+name+".gif")
+                        IMAGES[name] = PhotoImage(file="resources/assets/images/"+imageString+"/"+name+".gif")
                     self.loadedImages[imageCategory].add(name)
 
         countPerRow = 10
@@ -516,7 +516,7 @@ class ItemWindow:
             else: 
                 try:
                     if item.IMAGE_NAME not in IMAGES:
-                        IMAGES[item.IMAGE_NAME] = PhotoImage(file="images\\"+directories[item.CATEGORY]+"\\"+item.IMAGE_NAME+".gif")
+                        IMAGES[item.IMAGE_NAME] = PhotoImage(file="resources/assets/images/"+directories[item.CATEGORY]+"/"+item.IMAGE_NAME+".gif")
                     self.buttons[i].config(image=IMAGES[item.IMAGE_NAME])
                 except TclError:
                     self.buttons[i].config(state=DISABLED)
@@ -739,7 +739,7 @@ class EditWindow(object):
         mainWindow.bind("<Control-s>", lambda _: self.save.invoke())
         mainWindow.bind("<Control-w>", lambda _: self.release())
         mainWindow.bind("<Escape>", lambda _: self.release())
-        mainWindow.iconbitmap("images\\icons\\tq.ico")
+        mainWindow.iconbitmap("resources/assets/images/icons/tq.ico")
         mainWindow.protocol('WM_DELETE_WINDOW', self.release)
         mainWindow.title("Edit Window")
         self.mainFrame = Frame(mainWindow, bg=COLOURS['DEFAULT_FG'], padx=PADDING['DEFAULT'], pady=PADDING['DEFAULT'])
@@ -1162,23 +1162,23 @@ class MainWindow:
 def init():
     global IMAGES
     IMAGES = {
-        "EURO" : PhotoImage(file="images\\icons\\euro.gif"),
-        "POTION" : PhotoImage(file="images\\icons\\potion.gif"),
-        "DEFAULT" : PhotoImage(file="images\\other\\empty.gif"),
-        "TOSHE" : PhotoImage(file="images\\other\\toshe.gif").subsample(2),
-        "TOSHETTE" : PhotoImage(file="images\\other\\toshette.gif").subsample(2),
-        "PYROSHE" : PhotoImage(file="images\\other\\pyroshe.gif").subsample(2),
-        "NOME" : PhotoImage(file="images\\other\\nome.gif").subsample(2),
-        "CHRIS" : PhotoImage(file="images\\other\\chris.gif").subsample(2),
-        "REESE" : PhotoImage(file="images\\other\\reese.gif").subsample(2),
-        "TOADY" : PhotoImage(file="images\\other\\toady.gif").subsample(2),
-        "FOXY" : PhotoImage(file="images\\other\\foxy.gif").subsample(2),
-        "LILY" : PhotoImage(file="images\\other\\lily.gif").subsample(2),
-        "GUMBALL MACHINE" : PhotoImage(file="images\\other\\gumball machine.gif").subsample(2),
-        "APOC" : PhotoImage(file="images\\other\\apoc.gif").subsample(2),
-        "M. WIZZARD" : PhotoImage(file="images\\other\\m wizzard.gif").subsample(2),
-        "QENDRESA" : PhotoImage(file="images\\areas\\pec\\11.gif").subsample(4),
-        "BARRIE" : PhotoImage(file="images\\areas\\pristina\\26.gif").subsample(3),
+        "EURO" : PhotoImage(file="resources/assets/images/icons/euro.gif"),
+        "POTION" : PhotoImage(file="resources/assets/images/icons/potion.gif"),
+        "DEFAULT" : PhotoImage(file="resources/assets/images/other/empty.gif"),
+        "TOSHE" : PhotoImage(file="resources/assets/images/other/toshe.gif").subsample(2),
+        "TOSHETTE" : PhotoImage(file="resources/assets/images/other/toshette.gif").subsample(2),
+        "PYROSHE" : PhotoImage(file="resources/assets/images/other/pyroshe.gif").subsample(2),
+        "NOME" : PhotoImage(file="resources/assets/images/other/nome.gif").subsample(2),
+        "CHRIS" : PhotoImage(file="resources/assets/images/other/chris.gif").subsample(2),
+        "REESE" : PhotoImage(file="resources/assets/images/other/reese.gif").subsample(2),
+        "TOADY" : PhotoImage(file="resources/assets/images/other/toady.gif").subsample(2),
+        "FOXY" : PhotoImage(file="resources/assets/images/other/foxy.gif").subsample(2),
+        "LILY" : PhotoImage(file="resources/assets/images/other/lily.gif").subsample(2),
+        "GUMBALL MACHINE" : PhotoImage(file="resources/assets/images/other/gumball machine.gif").subsample(2),
+        "APOC" : PhotoImage(file="resources/assets/images/other/apoc.gif").subsample(2),
+        "M. WIZZARD" : PhotoImage(file="resources/assets/images/other/m wizzard.gif").subsample(2),
+        "QENDRESA" : PhotoImage(file="resources/assets/images/areas/pec/11.gif").subsample(4),
+        "BARRIE" : PhotoImage(file="resources/assets/images/areas/pristina/26.gif").subsample(3),
     }
     global COLOURS
     COLOURS = {
@@ -1203,7 +1203,7 @@ def start():
 
     init()
 
-    root.iconbitmap("images\\icons\\tq.ico")
+    root.iconbitmap("editor.ico")
     root.title("File Editor")
     root.resizable(0, 0)
 

@@ -1,6 +1,5 @@
 /TUA*.py
-/images
-/data
+/resources
 *.pyc
 ~$*
 /desktop.ini
