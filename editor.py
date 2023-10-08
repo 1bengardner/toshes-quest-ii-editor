@@ -1108,6 +1108,7 @@ class MainWindow:
             character = pickle.load(gameFile)
         try:
             self.characterName.config(relief=GROOVE, text=path.rsplit('/', 1)[-1], font=("TkDefaultFont", 16))
+            self.portraits["Toshe"]['image'] = IMAGES[character.portrait.upper()]
             unlockedPortraits = ["Toshe"]
             self.portraits["Toshe"]['value'] = character.NAME
             if hasattr(character, "mercenaries"):
@@ -1165,6 +1166,17 @@ def init():
         "POTION" : PhotoImage(file="images\\icons\\potion.gif"),
         "DEFAULT" : PhotoImage(file="images\\other\\empty.gif"),
         "TOSHE" : PhotoImage(file="images\\other\\toshe.gif").subsample(2),
+        "TOSHETTE" : PhotoImage(file="images\\other\\toshette.gif").subsample(2),
+        "PYROSHE" : PhotoImage(file="images\\other\\pyroshe.gif").subsample(2),
+        "NOME" : PhotoImage(file="images\\other\\nome.gif").subsample(2),
+        "CHRIS" : PhotoImage(file="images\\other\\chris.gif").subsample(2),
+        "REESE" : PhotoImage(file="images\\other\\reese.gif").subsample(2),
+        "TOADY" : PhotoImage(file="images\\other\\toady.gif").subsample(2),
+        "FOXY" : PhotoImage(file="images\\other\\foxy.gif").subsample(2),
+        "LILY" : PhotoImage(file="images\\other\\lily.gif").subsample(2),
+        "GUMBALL MACHINE" : PhotoImage(file="images\\other\\gumball machine.gif").subsample(2),
+        "APOC" : PhotoImage(file="images\\other\\apoc.gif").subsample(2),
+        "M. WIZZARD" : PhotoImage(file="images\\other\\m wizzard.gif").subsample(2),
         "QENDRESA" : PhotoImage(file="images\\areas\\pec\\11.gif").subsample(4),
         "BARRIE" : PhotoImage(file="images\\areas\\pristina\\26.gif").subsample(3),
     }
