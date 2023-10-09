@@ -2,11 +2,11 @@
 
 Character data editor for [Toshe's Quest II](https://github.com/1bengardner/toshes-quest-ii).
 
-## ⚠ Warning
+> [!WARNING]  
+> Using the editor may render your saved file incompatible with the game. If you manage to mess up your saved game, you'll have to un-mess it yourself. Keep a backup!
 
-Using the editor may render your saved file incompatible with the game. If you manage to mess up your saved game, you'll have to un-mess it yourself. Keep a backup!
-
-> I mainly used this as a tool to help test the game during development. It's not meant as a game enhancement tool, but you're free to use it that way!
+> [!NOTE]  
+> I mainly used this as a tool to help test the game during development. It's not meant as a gameplay enhancement tool, but you're free to use it that way!
 
 ## Requirements
 
