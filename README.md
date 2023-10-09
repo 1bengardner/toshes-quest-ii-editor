@@ -12,11 +12,9 @@ Using the editor may render your saved file incompatible with the game. If you m
 
 The editor depends on many [game source](https://github.com/1bengardner/toshes-quest-ii/tree/master/source) files including its images and data.
 
-- Modules must be in the same directory as `editor.py`
-- The `images` directory must be in the same directory as `editor.py` (i.e. `.\images\` must contain the contents of `<game-source>\resources\assets\images\`)
-- The `data` directory must be in the same directory as `editor.py` (same as above)
+You can make it easy to run by placing the editor project's files in the same directory as the game source.
 
-On Windows, you can use the included [mklinks.bat](mklinks.bat) to speed up linking the required files from your game source directory.
+Alternatively, on Windows, you can use the included [mklinks.bat](mklinks.bat) to speed up linking the required files from your game source directory to this one.
 
 ## Features
 
