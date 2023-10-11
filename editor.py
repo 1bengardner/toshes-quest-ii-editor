@@ -1203,7 +1203,7 @@ def start():
 
     init()
 
-    root.iconbitmap("editor.ico")
+    root.iconbitmap("resources/assets/images/icons/TQ.ico")
     root.title("File Editor")
     root.resizable(0, 0)
 
