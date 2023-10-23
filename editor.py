@@ -601,6 +601,10 @@ class ItemWindow:
         elif "" in (category, self.price.get()):
             return showError()
 
+        upgradeCount = 0
+        if hasattr(self.items[index], "upgradeCount"):
+            upgradeCount = self.items[index].upgradeCount
+
         if category == "Shield":
             if "" in (self.reqVal.get(), self.defence.get(), self.block.get(), self.resType.get(), self.resVal.get()):
                 return showError()
@@ -644,6 +648,8 @@ class ItemWindow:
                 float(self.crit.get()),
                 int(self.damage.get()),
             )
+        if upgradeCount:
+            self.items[index].upgradeCount = upgradeCount
         self.items[index].IMAGE_NAME = self.imageName
         self.buttons[index].config(image=IMAGES[self.imageName])
         self.erase.config(state=NORMAL, bg=COLOURS['DEFAULT_FG'])
@@ -660,7 +666,7 @@ class ItemWindow:
         self.dumpItems(character)
         with open(self.path, "w") as gameFile:
             pickle.dump(character, gameFile)
-        print "Saved items."
+        print "Saved item."
         if deleting:
             return
         if self.items[self.itemVar.get()].CATEGORY == "Miscellaneous":
